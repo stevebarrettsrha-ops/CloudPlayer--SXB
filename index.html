@@ -200,7 +200,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
         <strong style="color:var(--text)">One-time setup (free):</strong><br>
         1. <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> &rarr; New Project &rarr; Enable <strong>Google Drive API</strong><br>
         2. Credentials &rarr; <strong>Create &rarr; OAuth 2.0 Client ID</strong> (Application type: <em>Web application</em>)<br>
-        3. Under <em>Authorised JavaScript Origins</em> add: <code>file://</code> if opening locally, or your hosted URL<br>
+        3. Under <em>Authorised JavaScript Origins</em> add your hosted URL (e.g. <code>https://yourdomain.com</code>)<br>
+        &nbsp;&nbsp;&nbsp;Under <em>Authorised Redirect URIs</em> add the same URL(s) you used for origins<br>
         4. Copy the Client ID and paste it above, then click <strong>Save</strong>
       </div>
     </div>
@@ -403,7 +404,7 @@ function startSignIn(){
   if(!gisOk){setErr('Auth services still loading \u2014 wait a moment');return;}
   if(!tokenClient){buildTC();setTimeout(startSignIn,700);return;}
   setErr(''); setBtnLoading('Opening Google sign-in\u2026');
-  try{ tokenClient.requestAccessToken({prompt:''}); }
+  try{ tokenClient.requestAccessToken({prompt:'select_account'}); }
   catch(e){ setErr('Failed to open sign-in popup. Check popup blocker.'); setBtnIdle(); }
 }
 
