@@ -354,6 +354,7 @@ function buildTC(){
     tokenClient=google.accounts.oauth2.initTokenClient({
       client_id:CLIENT_ID,scope:SCOPES,
       callback:onToken,
+      ux_mode:'popup',
       error_callback:(e)=>{
         setErr('Sign-in cancelled or blocked. Allow popups and try again.');
         setHint('Make sure your browser allows popups for this page');
