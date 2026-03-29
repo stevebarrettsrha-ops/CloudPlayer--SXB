@@ -1228,6 +1228,8 @@ let allFiles = [], filtered = [], curIdx = -1, curFilter = 'all';
 let folderStack = [{ id: 'root', name: 'My Drive' }];
 let isShuf = false, isRepeat = false, isMuted = false;
 let blobUrls = [];
+let streamController = null;   // AbortController for background chunk fetching
+let streamFileId     = null;   // which file is currently being streamed
 
 const audioEl = document.getElementById('audioEl');
 const videoEl = document.getElementById('videoEl');
@@ -1614,13 +1616,22 @@ function renderBC() {
 }
 
 // ════════════════════════════════════════
-//  PLAYBACK
+//  PLAYBACK  (streaming — starts after first 1 MB)
 // ════════════════════════════════════════
+
+const FIRST_CHUNK  = 1_048_576;   // 1 MB  — enough for ~1 min at 128kbps
+const BG_CHUNK     = 2_097_152;   // 2 MB  — subsequent background chunks
+
 async function playAt(idx) {
   const file = filtered[idx];
   if (!file || file.mimeType === 'application/vnd.google-apps.folder') return;
+
+  // Cancel any in-progress background stream for previous track
+  if (streamController) { streamController.abort(); streamController = null; }
+  streamFileId = file.id;
+
   curIdx = idx;
-  const isAu = file.mimeType.includes('audio/');
+  const isAu  = file.mimeType.includes('audio/');
   const clean = file.name.replace(/\.[^.]+$/, '');
 
   document.getElementById('tTitle').textContent = clean;
@@ -1641,31 +1652,127 @@ async function playAt(idx) {
   document.querySelectorAll('.fitem').forEach(e => e.classList.remove('now'));
   const li = document.querySelector(`.fitem[data-i="${idx}"]`);
   if (li) { li.classList.add('now'); li.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
-  renderQueue(); setLoad(true); toast('⏳ Buffering…');
+  renderQueue();
+  setLoad(true);
+  toast('⏳ Loading…');
 
   try {
-    const r = await authFetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`);
-    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-    const blob = await r.blob();
-    blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [];
-    const url = URL.createObjectURL(blob); blobUrls.push(url);
+    const driveUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
+    const token    = await getValidToken();
+
+    // ── Phase 1: fetch first 1 MB and start playing immediately ──
+    const r1 = await fetch(driveUrl, {
+      headers: { Authorization: 'Bearer ' + token, Range: `bytes=0-${FIRST_CHUNK - 1}` }
+    });
+
+    if (r1.status === 401) throw new Error('Unauthorised — try signing out and back in');
+    // 200 = server sent full file (no range support); 206 = partial content
+    if (!r1.ok && r1.status !== 206) throw new Error(`HTTP ${r1.status}`);
+
+    // Parse total file size from Content-Range: bytes 0-N/TOTAL
+    let totalSize = null;
+    const cr = r1.headers.get('Content-Range');
+    if (cr) { const m = cr.match(/\/(\d+)$/); if (m) totalSize = +m[1]; }
+    // If server returned 200 (no range support) treat as full file
+    if (r1.status === 200) totalSize = null;
+
+    const firstBuf  = await r1.arrayBuffer();
+    const firstBlob = new Blob([firstBuf], { type: file.mimeType });
+    const firstUrl  = URL.createObjectURL(firstBlob);
+
+    blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [firstUrl];
 
     if (!isAu) {
       audioEl.pause();
-      videoEl.src = url; videoEl.volume = +document.getElementById('volR').value;
+      videoEl.src = firstUrl;
+      videoEl.volume = +document.getElementById('volR').value;
       await videoEl.play();
     } else {
       stopMedia(false);
-      audioEl.src = url; audioEl.volume = +document.getElementById('volR').value;
-      setupAudio(); await audioEl.play();
+      audioEl.src = firstUrl;
+      audioEl.volume = +document.getElementById('volR').value;
+      setupAudio();
+      await audioEl.play();
       disc.classList.add('playing');
     }
-    setPlayIcon(false); setNPActive(true); toast('▶ ' + clean);
-  } catch(e) { console.error(e); toast('Playback failed — ' + e.message, true); }
-  finally { setLoad(false); }
+
+    setPlayIcon(false);
+    setNPActive(true);
+    toast('▶ ' + clean);
+    setLoad(false);
+
+    // ── Phase 2: fetch remaining chunks in background ──
+    // Only if the server supports Range requests and there's more data
+    if (totalSize && firstBuf.byteLength < totalSize) {
+      streamController = new AbortController();
+      fetchBackground(file, firstBuf, totalSize, streamController.signal, isAu);
+    }
+
+  } catch(e) {
+    console.error(e);
+    toast('Playback failed — ' + e.message, true);
+    setLoad(false);
+  }
+}
+
+/**
+ * Continues fetching the file in 2 MB chunks after the first chunk is playing.
+ * When complete, silently upgrades the src so the full file is seekable.
+ */
+async function fetchBackground(file, firstBuf, totalSize, signal, isAu) {
+  const driveUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
+  const chunks   = [firstBuf];
+  let   offset   = firstBuf.byteLength;
+
+  try {
+    while (offset < totalSize && !signal.aborted && streamFileId === file.id) {
+      const end   = Math.min(offset + BG_CHUNK - 1, totalSize - 1);
+      const token = await getValidToken();
+
+      const r = await fetch(driveUrl, {
+        signal,
+        headers: { Authorization: 'Bearer ' + token, Range: `bytes=${offset}-${end}` }
+      });
+
+      if (!r.ok && r.status !== 206) break;
+      const buf = await r.arrayBuffer();
+      if (signal.aborted || streamFileId !== file.id) return;
+
+      chunks.push(buf);
+      offset += buf.byteLength;
+    }
+  } catch(e) {
+    if (e.name === 'AbortError') return; // user switched track — expected
+    console.warn('[DrivePlayer] Background fetch error:', e);
+    return;
+  }
+
+  // Abort or track change — don't upgrade
+  if (signal.aborted || streamFileId !== file.id) return;
+
+  // Full file assembled — upgrade src so the whole file is seekable
+  const fullBlob = new Blob(chunks, { type: file.mimeType });
+  const fullUrl  = URL.createObjectURL(fullBlob);
+
+  const el        = isAu ? audioEl : videoEl;
+  const wasTime   = el.currentTime;
+  const wasPlaying = !el.paused;
+
+  // Swap URL; restore position
+  blobUrls.forEach(u => URL.revokeObjectURL(u));
+  blobUrls = [fullUrl];
+  el.src   = fullUrl;
+
+  el.addEventListener('loadedmetadata', () => {
+    el.currentTime = wasTime;
+    if (wasPlaying) el.play().catch(() => {});
+    if (isAu && audioCtx?.state === 'suspended') audioCtx.resume();
+  }, { once: true });
 }
 
 function stopMedia(clear = true) {
+  // Cancel any in-progress background stream
+  if (clear && streamController) { streamController.abort(); streamController = null; streamFileId = null; }
   audioEl.pause(); videoEl.pause();
   if (clear) { audioEl.src = ''; videoEl.src = ''; }
   document.getElementById('disc').classList.remove('playing');
