@@ -293,6 +293,15 @@ body{height:100%;height:-webkit-fill-available;background:var(--bg);color:var(--
 .bci.last{color:var(--text);cursor:default}
 .bcsep{color:var(--border);font-size:11px}
 
+/* preload status */
+.preload-status{
+  font-size:9px;color:var(--cyan);padding:2px 16px 0;
+  font-family:var(--font-m);letter-spacing:.05em;
+  min-height:14px;transition:color .3s;
+}
+.preload-status:empty{display:none}
+.preload-status.done{color:var(--green)}
+
 /* filter tabs */
 .fbar{display:flex;gap:5px;padding:8px 16px;flex-shrink:0}
 .ftab{
@@ -1189,8 +1198,9 @@ input[type=range]::-webkit-slider-thumb{
       </button>
     </div>
     <div class="bc" id="bc">
-      <span class="bci last" onclick="goRoot()">My Drive</span>
+      <span class="bci last" onclick="goRoot()">Music Library</span>
     </div>
+    <div class="preload-status" id="preloadStatus"></div>
     <div class="fbar">
       <button class="ftab on" onclick="setFilter(this,'all')">All</button>
       <button class="ftab" onclick="setFilter(this,'audio')">Audio</button>
@@ -1381,8 +1391,14 @@ input[type=range]::-webkit-slider-thumb{
 // ════════════════════════════════════════
 //  CONSTANTS & STATE
 // ════════════════════════════════════════
-const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile';
+const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.profile';
 const DISC   = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+
+// ── Default music folder on Google Drive ──
+const MUSIC_FOLDER_ID = '1-BpvON_8U9ynRP-qv2Ds1HUlwv9-AhTt';
+const METADATA_FILENAME = 'cloudplayer-metadata.json';
+const DB_NAME = 'CloudPlayerCache';
+const DB_VERSION = 1;
 
 let CLIENT_ID    = localStorage.getItem('dp_cid') || '745322669687-dhrv25ih7g2ckomq41v7bvghu0shsrvv.apps.googleusercontent.com';
 let accessToken  = null, tokenClient = null;
@@ -1392,11 +1408,14 @@ let isRefreshing = false;      // mutex: prevents concurrent refresh calls
 let refreshQueue = [];         // pending callbacks waiting for fresh token
 let gapiOk = false, gisOk = false;
 let allFiles = [], filtered = [], curIdx = -1, curFilter = 'all';
-let folderStack = [{ id: 'root', name: 'My Drive' }];
+let folderStack = [{ id: MUSIC_FOLDER_ID, name: 'Music Library' }];
 let isShuf = false, isRepeat = false, isMuted = false;
 let blobUrls = [];
 let streamController = null;   // AbortController for background chunk fetching
 let streamFileId     = null;   // which file is currently being streamed
+let preloadAbort     = null;   // AbortController for bulk preload
+let isPreloading     = false;  // bulk preload in progress
+let cloudMetaFileId  = null;   // Drive file ID of metadata JSON
 
 const audioEl = document.getElementById('audioEl');
 const videoEl = document.getElementById('videoEl');
@@ -1628,15 +1647,17 @@ async function onToken(resp) {
   requestAnimationFrame(() => { app.style.transition = 'opacity .45s'; app.style.opacity = '1'; });
   document.getElementById('liveDot').classList.add('on');
   btnIdle(); toast('Signed in as ' + (user.given_name || name));
-  loadDrive();
+  initLibrary();
 }
 
 function signOut() {
+  cancelPreload();
   if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
   isRefreshing = false; refreshQueue = []; tokenExpiry = 0;
   if (accessToken) { try { google.accounts.oauth2.revoke(accessToken); } catch(e) {} }
   accessToken = null; gapi.client.setToken(null);
   allFiles = []; filtered = []; curIdx = -1;
+  cloudMetaFileId = null;
   stopMedia();
   document.getElementById('screenApp').classList.add('hidden');
   document.getElementById('screenSignin').classList.remove('hidden');
@@ -1674,6 +1695,315 @@ function pillOk(p,t,x)  { document.getElementById(p).classList.add('ready'); doc
 function pillFail(p,t,x){ document.getElementById(p).classList.add('fail');  document.getElementById(t).textContent = x; }
 
 // ════════════════════════════════════════
+//  INDEXEDDB LOCAL CACHE
+// ════════════════════════════════════════
+
+function openCacheDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('audioBlobs')) {
+        db.createObjectStore('audioBlobs', { keyPath: 'fileId' });
+      }
+      if (!db.objectStoreNames.contains('metadata')) {
+        db.createObjectStore('metadata', { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+async function getCachedBlob(fileId) {
+  try {
+    const db = await openCacheDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction('audioBlobs', 'readonly');
+      const req = tx.objectStore('audioBlobs').get(fileId);
+      req.onsuccess = () => resolve(req.result?.blob || null);
+      req.onerror   = () => resolve(null);
+    });
+  } catch { return null; }
+}
+
+async function setCachedBlob(fileId, blob, name, mimeType) {
+  try {
+    const db = await openCacheDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction('audioBlobs', 'readwrite');
+      tx.objectStore('audioBlobs').put({ fileId, blob, name, mimeType, cachedAt: Date.now() });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror    = () => resolve(false);
+    });
+  } catch { return false; }
+}
+
+async function getCachedLibrary() {
+  try {
+    const db = await openCacheDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction('metadata', 'readonly');
+      const req = tx.objectStore('metadata').get('library');
+      req.onsuccess = () => resolve(req.result?.data || null);
+      req.onerror   = () => resolve(null);
+    });
+  } catch { return null; }
+}
+
+async function setCachedLibrary(data) {
+  try {
+    const db = await openCacheDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction('metadata', 'readwrite');
+      tx.objectStore('metadata').put({ key: 'library', data, updatedAt: Date.now() });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror    = () => resolve(false);
+    });
+  } catch { return false; }
+}
+
+async function getAllCachedFileIds() {
+  try {
+    const db = await openCacheDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction('audioBlobs', 'readonly');
+      const req = tx.objectStore('audioBlobs').getAllKeys();
+      req.onsuccess = () => resolve(new Set(req.result));
+      req.onerror   = () => resolve(new Set());
+    });
+  } catch { return new Set(); }
+}
+
+// ════════════════════════════════════════
+//  GOOGLE DRIVE CLOUD METADATA SYNC
+// ════════════════════════════════════════
+
+/** Find or create the cloudplayer-metadata.json file in the music folder */
+async function findOrCreateMetadataFile() {
+  const token = await getValidToken();
+
+  // Search for existing metadata file
+  const searchRes = await gapi.client.drive.files.list({
+    q: `name='${METADATA_FILENAME}' and '${MUSIC_FOLDER_ID}' in parents and trashed=false`,
+    pageSize: 1,
+    fields: 'files(id,name)'
+  });
+  const existing = searchRes.result.files || [];
+  if (existing.length > 0) {
+    cloudMetaFileId = existing[0].id;
+    return cloudMetaFileId;
+  }
+
+  // Create new metadata file
+  const metadata = {
+    name: METADATA_FILENAME,
+    mimeType: 'application/json',
+    parents: [MUSIC_FOLDER_ID]
+  };
+  const initData = JSON.stringify({ files: [], lastSync: Date.now(), version: 1 });
+
+  const resp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token },
+    body: createMultipartBody(metadata, initData)
+  });
+  const result = await resp.json();
+  cloudMetaFileId = result.id;
+  return cloudMetaFileId;
+}
+
+function createMultipartBody(metadata, content) {
+  const boundary = 'cloudplayer_boundary_' + Date.now();
+  const body =
+    '--' + boundary + '\r\n' +
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+    JSON.stringify(metadata) + '\r\n' +
+    '--' + boundary + '\r\n' +
+    'Content-Type: application/json\r\n\r\n' +
+    content + '\r\n' +
+    '--' + boundary + '--';
+  return new Blob([body], { type: 'multipart/related; boundary=' + boundary });
+}
+
+/** Load library metadata from Google Drive */
+async function loadCloudMetadata() {
+  try {
+    const fileId = await findOrCreateMetadataFile();
+    const token = await getValidToken();
+    const resp = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: 'Bearer ' + token } }
+    );
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch (e) { console.warn('[CloudSync] Load failed:', e); return null; }
+}
+
+/** Save library metadata to Google Drive */
+async function saveCloudMetadata(data) {
+  try {
+    if (!cloudMetaFileId) await findOrCreateMetadataFile();
+    const token = await getValidToken();
+    data.lastSync = Date.now();
+    await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${cloudMetaFileId}?uploadType=media`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      }
+    );
+    console.log('[CloudSync] Metadata saved to Drive');
+  } catch (e) { console.warn('[CloudSync] Save failed:', e); }
+}
+
+// ════════════════════════════════════════
+//  LIBRARY INIT & BULK PRELOAD
+// ════════════════════════════════════════
+
+/**
+ * Master init: called after login. Loads library from local cache,
+ * fetches fresh file list from Drive, background-preloads all songs,
+ * and syncs metadata to cloud.
+ */
+async function initLibrary() {
+  toast('Loading music library…');
+  setLoad(true);
+
+  // 1. Try local cache first for instant UI
+  const cached = await getCachedLibrary();
+  if (cached && cached.files && cached.files.length > 0) {
+    allFiles = cached.files;
+    applyFilter();
+    toast(`${allFiles.filter(f => !f.mimeType.includes('folder')).length} tracks (cached)`);
+  }
+
+  // 2. Fetch fresh file list from Drive (recursive scan)
+  try {
+    const freshFiles = await fetchAllDriveFiles(MUSIC_FOLDER_ID);
+    allFiles = freshFiles;
+    applyFilter();
+    const n = allFiles.filter(f => !f.mimeType.includes('folder')).length;
+    toast(`${n} media file${n !== 1 ? 's' : ''} loaded from Drive`);
+
+    // Save to local cache
+    await setCachedLibrary({ files: allFiles, folderId: MUSIC_FOLDER_ID });
+
+    // 3. Sync metadata to cloud
+    saveCloudMetadata({
+      files: allFiles.map(f => ({ id: f.id, name: f.name, mimeType: f.mimeType, size: f.size })),
+      version: 1
+    });
+  } catch (e) {
+    console.error('[Library] Drive fetch failed, using cache:', e);
+    if (!cached) toast('Error loading Drive', true);
+  }
+
+  setLoad(false);
+  renderBC();
+
+  // 4. Start background preload of all audio files
+  bulkPreload();
+
+  // 5. Auto-play first audio track if nothing is playing
+  if (curIdx < 0) {
+    const firstAudio = filtered.findIndex(f => f.mimeType.includes('audio/'));
+    if (firstAudio >= 0) playAt(firstAudio);
+  }
+}
+
+/** Fetch all media files from a Drive folder (non-recursive, just the folder) */
+async function fetchAllDriveFiles(folderId) {
+  const token = await getValidToken();
+  gapi.client.setToken({ access_token: token });
+  const q = `(mimeType contains 'audio/' or mimeType contains 'video/' or mimeType='application/vnd.google-apps.folder') and '${folderId}' in parents and trashed=false`;
+  let files = [], pageToken = null;
+  do {
+    const params = { q, pageSize: 300, orderBy: 'name', fields: 'nextPageToken,files(id,name,mimeType,size,videoMediaMetadata)' };
+    if (pageToken) params.pageToken = pageToken;
+    const res = await gapi.client.drive.files.list(params);
+    files = files.concat(res.result.files || []);
+    pageToken = res.result.nextPageToken;
+  } while (pageToken);
+  return files;
+}
+
+/**
+ * Background-preload all audio files into IndexedDB.
+ * Downloads one at a time to avoid overwhelming the connection.
+ */
+async function bulkPreload() {
+  const audioFiles = allFiles.filter(f => f.mimeType.includes('audio/'));
+  if (!audioFiles.length) return;
+
+  const cachedIds = await getAllCachedFileIds();
+  const uncached = audioFiles.filter(f => !cachedIds.has(f.id));
+
+  if (!uncached.length) {
+    toast('All tracks cached locally');
+    updatePreloadProgress(audioFiles.length, audioFiles.length);
+    return;
+  }
+
+  isPreloading = true;
+  preloadAbort = new AbortController();
+  const total = audioFiles.length;
+  let done = total - uncached.length;
+
+  toast(`Caching ${uncached.length} track${uncached.length !== 1 ? 's' : ''} in background…`);
+  updatePreloadProgress(done, total);
+
+  for (const file of uncached) {
+    if (preloadAbort.signal.aborted) break;
+
+    try {
+      const token = await getValidToken();
+      const resp = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
+        {
+          headers: { Authorization: 'Bearer ' + token },
+          signal: preloadAbort.signal
+        }
+      );
+      if (!resp.ok) { console.warn('[Preload] Skip', file.name, resp.status); continue; }
+      const blob = await resp.blob();
+      await setCachedBlob(file.id, blob, file.name, file.mimeType);
+      done++;
+      updatePreloadProgress(done, total);
+    } catch (e) {
+      if (e.name === 'AbortError') break;
+      console.warn('[Preload] Error:', file.name, e);
+    }
+  }
+
+  isPreloading = false;
+  if (!preloadAbort.signal.aborted) {
+    toast('All tracks cached locally');
+    updatePreloadProgress(total, total);
+  }
+}
+
+function updatePreloadProgress(done, total) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const el = document.getElementById('preloadStatus');
+  if (el) {
+    el.textContent = done < total
+      ? `Caching: ${done}/${total} (${pct}%)`
+      : 'All tracks cached';
+    el.classList.toggle('done', done >= total);
+  }
+}
+
+function cancelPreload() {
+  if (preloadAbort) { preloadAbort.abort(); preloadAbort = null; }
+  isPreloading = false;
+}
+
+// ════════════════════════════════════════
 //  DRIVE
 // ════════════════════════════════════════
 async function loadDrive(folderId) {
@@ -1681,15 +2011,15 @@ async function loadDrive(folderId) {
   folderId = folderId || folderStack.at(-1).id;
   setLoad(true);
   try {
-    const q = `(mimeType contains 'audio/' or mimeType contains 'video/' or mimeType='application/vnd.google-apps.folder') and '${folderId}' in parents and trashed=false`;
-    // Ensure token is fresh before Drive API call
-    const tok = await getValidToken();
-    gapi.client.setToken({ access_token: tok });
-    const res = await gapi.client.drive.files.list({ q, pageSize: 300, orderBy: 'name', fields: 'files(id,name,mimeType,size,videoMediaMetadata)' });
-    allFiles = res.result.files || [];
+    const files = await fetchAllDriveFiles(folderId);
+    allFiles = files;
     applyFilter();
     const n = allFiles.filter(f => !f.mimeType.includes('folder')).length;
     toast(`${n} media file${n !== 1 ? 's' : ''} found`);
+    // Update local cache when browsing
+    if (folderId === MUSIC_FOLDER_ID) {
+      setCachedLibrary({ files: allFiles, folderId });
+    }
   } catch(e) { console.error(e); toast('Error loading Drive', true); }
   finally { setLoad(false); }
 }
@@ -1773,7 +2103,7 @@ function renderQueue() {
 }
 
 function openFolder(id, name) { folderStack.push({ id, name }); renderBC(); loadDrive(id); }
-function goRoot()              { folderStack = [{ id: 'root', name: 'My Drive' }]; renderBC(); loadDrive('root'); }
+function goRoot()              { folderStack = [{ id: MUSIC_FOLDER_ID, name: 'Music Library' }]; renderBC(); loadDrive(MUSIC_FOLDER_ID); }
 function navTo(i)              { folderStack = folderStack.slice(0, i + 1); renderBC(); loadDrive(folderStack[i].id); }
 function renderBC() {
   document.getElementById('bc').innerHTML = folderStack.map((f, i) => {
@@ -1833,11 +2163,42 @@ async function playAt(idx) {
     return;
   }
 
-  // ── AUDIO — full XHR download with progress indicator ──
+  // ── AUDIO — try cache first, then download with progress ──
   stopMedia(false);
   setLoad(true);
-  showAudioProgress(clean);
 
+  const cachedBlob = await getCachedBlob(file.id);
+  if (cachedBlob) {
+    // Instant playback from local cache
+    setLoad(false);
+    if (streamFileId !== file.id) return;
+    if (audioBlobUrl) { URL.revokeObjectURL(audioBlobUrl); }
+    blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [];
+    audioBlobUrl = URL.createObjectURL(cachedBlob);
+    blobUrls.push(audioBlobUrl);
+
+    const note = document.getElementById('cdNote');
+    if (note) note.textContent = '▶ cached';
+
+    audioEl.src    = audioBlobUrl;
+    audioEl.volume = +document.getElementById('volR').value;
+    setupAudio();
+
+    try {
+      await audioEl.play();
+      document.getElementById('disc').classList.add('playing');
+      setPlayIcon(false); setNPActive(true);
+      toast('▶ ' + clean + ' (cached)');
+    } catch(e) {
+      console.warn('Audio play blocked:', e);
+      toast('Tap play to start', false);
+      setPlayIcon(true);
+    }
+    return;
+  }
+
+  // Not cached — download from Drive
+  showAudioProgress(clean);
   downloadAudio(file, driveUrl, token, clean);
 }
 
@@ -1893,6 +2254,9 @@ function downloadAudio(file, driveUrl, token, clean) {
     blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [];
     audioBlobUrl = URL.createObjectURL(xhr.response);
     blobUrls.push(audioBlobUrl);
+
+    // Save to local cache for next time
+    setCachedBlob(file.id, xhr.response, file.name, file.mimeType);
 
     // Check user didn't switch tracks while downloading
     if (streamFileId !== file.id) return;
