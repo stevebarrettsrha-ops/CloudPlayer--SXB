@@ -399,7 +399,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   border:1px solid var(--border-hi);
   box-shadow:0 20px 60px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.03);
 }
-.disc.playing .disc-ring{animation-play-state:running;opacity:1}
+.disc-outer:has(.disc.playing) .disc-ring{animation-play-state:running;opacity:1}
 @keyframes ringRotate{to{transform:rotate(360deg)}}
 #videoEl{width:100%;height:100%;object-fit:contain;display:none}
 .vf{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
@@ -727,7 +727,7 @@ input[type=range]::-webkit-slider-thumb{
         <div class="uav" id="topAv">?</div>
         <span id="topName">User</span>
       </div>
-      <button class="tbtn" onclick="signOut()">
+      <button class="tbtn" onclick="goSetup()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
         Setup
       </button>
@@ -1001,11 +1001,8 @@ function buildTC() {
 //  CLIENT ID
 // ════════════════════════════════════════
 window.addEventListener('load', () => {
-  if (CLIENT_ID) {
-    document.getElementById('cidInp').value = CLIENT_ID;
-    document.getElementById('cidInp').classList.add('ok');
-    markStep(1);
-  }
+  // CLIENT_ID is embedded — mark step 1 as done immediately
+  markStep(1);
 });
 
 function saveClientId() {
@@ -1247,9 +1244,18 @@ function stopMedia(clear = true) {
 //  WEB AUDIO + EQ
 // ════════════════════════════════════════
 function setupAudio() {
-  if (animId) cancelAnimationFrame(animId);
-  if (audioCtx) { try { audioCtx.close(); } catch(e) {} }
+  // Resume suspended context (autoplay policy) – do not close/recreate.
+  // createMediaElementSource() can only be called ONCE per HTMLMediaElement;
+  // calling it again after audioCtx.close() throws InvalidStateError.
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    // Re-apply EQ gains (filters persist across tracks)
+    eqFilters.forEach((f, i) => { f.gain.value = eqGains[i]; });
+    if (!animId) drawVis();
+    return;
+  }
 
+  // First call: build the whole audio graph once
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   srcNode  = audioCtx.createMediaElementSource(audioEl);
 
@@ -1261,7 +1267,7 @@ function setupAudio() {
     return f;
   });
 
-  // Chain: src → eq[0] → eq[1] → ... → analyser → out
+  // Chain: src → eq[0] → eq[1] → ... → analyser → destination
   analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
   let prev = srcNode;
   eqFilters.forEach(f => { prev.connect(f); prev = f; });
@@ -1362,11 +1368,13 @@ function drawVis() {
       ctx.fillStyle = g;
       const r = 3;
       const barW = Math.max(bw - 1.5, 1);
+      if (h < 1) { x += bw; continue; }
+      const rr = Math.min(r, h / 2, barW / 2);
       ctx.beginPath();
-      ctx.moveTo(x + r, cv.height - h); ctx.lineTo(x + barW - r, cv.height - h);
-      ctx.arcTo(x + barW, cv.height - h, x + barW, cv.height - h + r, r);
+      ctx.moveTo(x + rr, cv.height - h); ctx.lineTo(x + barW - rr, cv.height - h);
+      ctx.arcTo(x + barW, cv.height - h, x + barW, cv.height - h + rr, rr);
       ctx.lineTo(x + barW, cv.height); ctx.lineTo(x, cv.height);
-      ctx.arcTo(x, cv.height - h, x + r, cv.height - h, r);
+      ctx.arcTo(x, cv.height - h, x + rr, cv.height - h, rr);
       ctx.closePath(); ctx.fill();
       x += bw;
     }
@@ -1403,7 +1411,7 @@ function togglePlay() {
     el.play(); setPlayIcon(false);
     document.getElementById('disc').classList.add('playing');
     setNPActive(true);
-    if (audioCtx?.state === 'suspended') audioCtx.resume();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   } else {
     el.pause(); setPlayIcon(true);
     document.getElementById('disc').classList.remove('playing');
