@@ -524,7 +524,7 @@ body{height:100%;height:-webkit-fill-available;background:var(--bg);color:var(--
 /* Idle state: slightly dimmer */
 .disc:not(.playing) .cd{opacity:0.75}
 
-#videoEl{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:none;border-radius:50%;z-index:3}
+#videoEl{display:none!important}  /* video plays in overlay, not in disc */
 .vf{display:none}  /* no separate vf layer — CD is the display */
 
 /* up-next queue */
@@ -862,48 +862,58 @@ input[type=range]::-webkit-slider-thumb{
   .stage{grid-column:1;overflow-y:auto;overflow-x:hidden}
   .stage-inner{padding:14px 14px 8px;align-items:flex-start}
 
-  /* ── Now-playing: disc centred above track info ── */
-  .np-layout{
-    flex-direction:column;
-    align-items:center;
-    gap:14px;
-    width:100%;
-  }
-  /* Disc centred, queue BELOW disc (not beside — avoids horizontal overflow) */
-  .art-wrap{
-    flex-direction:column;
-    align-items:center;
-    gap:10px;
-    width:100%;
-  }
-  .disc-outer{width:130px;height:130px;flex-shrink:0}
   .disc-ring{inset:-4px;border-radius:50%}
   .disc-ring-mask{inset:2px;border-radius:50%}
 
-  /* Queue: horizontal scroll row under disc */
+  /* ── Now-playing row: disc left, chips+info stacked right ── */
+  .np-layout{
+    flex-direction:row !important;
+    align-items:flex-start;
+    gap:14px;
+    width:100%;
+  }
+  .art-wrap{
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+    width:auto;
+  }
+  .disc-outer{width:120px;height:120px}
+
+  /* Queue chips: vertical stack, full width of right column */
   .queue{
-    flex-direction:row;
+    flex-direction:column !important;
     flex-wrap:nowrap;
-    overflow-x:auto;
-    overflow-y:hidden;
-    max-width:100%;
-    max-height:none;
-    gap:6px;
+    overflow-x:hidden;
+    overflow-y:auto;
+    max-width:none;
+    max-height:150px;
+    width:100%;
+    gap:5px;
     padding:2px 0;
     -webkit-overflow-scrolling:touch;
   }
-  .queue::-webkit-scrollbar{display:none}
+  .queue::-webkit-scrollbar{width:2px}
+  .queue::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
   .qchip{
-    width:auto;
-    min-width:100px;
-    max-width:160px;
+    width:100%;
+    min-width:0;
+    max-width:none;
     flex-shrink:0;
     font-size:9px;
+    box-sizing:border-box;
   }
 
-  /* Track info full width */
-  .track-info{width:100%;min-width:0;padding-top:0}
-  .t-title{font-size:20px;line-height:1.2}
+  /* Right column: chips above, track info below */
+  .art-wrap ~ .track-info,
+  .track-info{
+    flex:1;
+    min-width:0;
+    width:100%;
+    padding-top:0;
+  }
+  .t-title{font-size:18px;line-height:1.2}
   .t-sub{font-size:10px;margin-top:2px}
 
   /* Visualizer */
@@ -949,15 +959,105 @@ input[type=range]::-webkit-slider-thumb{
 }
 
 @media (max-width:430px){
-  .disc-outer{width:110px;height:110px}
-  .cd-logo{font-size:8px}
+  .disc-outer{width:100px;height:100px}
+  .cd-logo{font-size:7px}
   .cd-note{display:none}
+  .queue{max-height:120px}
+  .t-title{font-size:16px}
   .t-title{font-size:18px}
   .stage-inner{padding:12px 10px 6px}
   .app-logo{font-size:15px}
   .cbtn{width:42px;height:42px}
   .play-btn{width:56px;height:56px}
   .eq-slider{width:60px}
+}
+
+
+/* ══════════════════════════════════════
+   VIDEO OVERLAY PLAYER
+══════════════════════════════════════ */
+.video-overlay{
+  display:none;
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,0.92);
+  backdrop-filter:blur(8px);
+  flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:20px;
+  animation:overlayIn .25s ease;
+}
+.video-overlay.open{display:flex}
+@keyframes overlayIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+
+.video-box{
+  position:relative;
+  width:100%;max-width:900px;
+  background:#000;
+  border-radius:14px;
+  overflow:visible;  /* must NOT clip — browser native video controls sit outside box */
+  box-shadow:0 40px 100px rgba(0,0,0,.8);
+  border:1px solid var(--border-hi);
+}
+.video-box video{
+  width:100%;height:auto;
+  max-height:80vh;
+  display:block;
+  border-radius:14px;
+}
+
+/* Loading state inside overlay */
+.video-loading{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;background:var(--panel);border-radius:14px;
+  z-index:5;
+}
+.video-loading.hidden{display:none}
+.vload-spinner{
+  width:48px;height:48px;border-radius:50%;
+  border:3px solid var(--border-hi);
+  border-top-color:var(--cyan);
+  animation:vspin2 0.8s linear infinite;
+}
+@keyframes vspin2{to{transform:rotate(360deg)}}
+.vload-name{
+  font-family:var(--font-h);font-size:20px;color:var(--warm);
+  letter-spacing:.02em;text-align:center;padding:0 20px;
+  max-width:500px;
+}
+.vload-prog-wrap{
+  width:280px;background:var(--panel2);border-radius:4px;height:4px;overflow:hidden;
+}
+.vload-prog{
+  height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));
+  border-radius:4px;width:0%;transition:width .3s;
+}
+.vload-pct{font-size:11px;color:var(--sub);letter-spacing:.06em}
+
+/* Overlay header bar */
+.video-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px 10px;width:100%;max-width:900px;
+  flex-shrink:0;
+}
+.video-title{
+  font-family:var(--font-h);font-size:20px;font-weight:300;
+  color:var(--warm);letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:calc(100% - 48px);
+}
+.video-close{
+  background:var(--panel);border:1px solid var(--border);border-radius:50%;
+  color:var(--text);width:36px;height:36px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .2s;
+}
+.video-close:hover{border-color:var(--red);color:var(--red);background:rgba(224,80,96,.1)}
+.video-close svg{width:16px;height:16px}
+
+@media(max-width:600px){
+  .video-box video{max-height:60vh}
+  .video-title{font-size:15px}
 }
 
 </style>
@@ -1206,6 +1306,32 @@ input[type=range]::-webkit-slider-thumb{
       <input type="range" id="volR" min="0" max="1" step="0.01" value="0.85" oninput="setVol(this.value)"/>
     </div>
   </footer>
+</div>
+
+<!-- ═══════ VIDEO OVERLAY ═══════ -->
+<div class="video-overlay" id="videoOverlay">
+  <div class="video-header">
+    <div class="video-title" id="videoOverlayTitle">Loading…</div>
+    <button class="video-close" onclick="closeVideoOverlay()" title="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+  <div class="video-box">
+    <!-- Loading indicator -->
+    <div class="video-loading" id="videoLoadingPanel">
+      <div class="vload-spinner"></div>
+      <div class="vload-name" id="vloadName">Preparing video…</div>
+      <div class="vload-prog-wrap"><div class="vload-prog" id="vloadProg"></div></div>
+      <div class="vload-pct" id="vloadPct">0%</div>
+    </div>
+    <!-- Actual video element (with controls, NO overflow clip) -->
+    <video id="overlayVideoEl" controls preload="auto"
+           style="display:none"
+           onended="onOverlayVideoEnded()">
+    </video>
+  </div>
 </div>
 
 <audio id="audioEl" preload="auto"></audio>
@@ -1619,8 +1745,8 @@ function renderBC() {
 //  PLAYBACK  (streaming — starts after first 1 MB)
 // ════════════════════════════════════════
 
-const FIRST_CHUNK  = 1_048_576;   // 1 MB  — enough for ~1 min at 128kbps
-const BG_CHUNK     = 2_097_152;   // 2 MB  — subsequent background chunks
+const FIRST_CHUNK  = 4_194_304;   // 4 MB  — enough for ~4 min at 128kbps / ~2.5 min at 192kbps
+const BG_CHUNK     = 3_145_728;   // 3 MB  — subsequent background chunks
 
 async function playAt(idx) {
   const file = filtered[idx];
@@ -1660,20 +1786,26 @@ async function playAt(idx) {
     const driveUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
     const token    = await getValidToken();
 
-    // ── Phase 1: fetch first 1 MB and start playing immediately ──
+    if (!isAu) {
+      // ── VIDEO: open overlay and download with progress ──
+      // MP4 moov atoms are often at the end — Range streaming doesn't work.
+      // Download fully with XHR progress, then play in the overlay.
+      setLoad(false);
+      openVideoOverlay(file, driveUrl, token, clean);
+      return; // overlay handles everything from here
+    }
+
+    // ── AUDIO: Phase 1 — fetch first 1 MB and start playing immediately ──
     const r1 = await fetch(driveUrl, {
       headers: { Authorization: 'Bearer ' + token, Range: `bytes=0-${FIRST_CHUNK - 1}` }
     });
 
     if (r1.status === 401) throw new Error('Unauthorised — try signing out and back in');
-    // 200 = server sent full file (no range support); 206 = partial content
     if (!r1.ok && r1.status !== 206) throw new Error(`HTTP ${r1.status}`);
 
-    // Parse total file size from Content-Range: bytes 0-N/TOTAL
     let totalSize = null;
     const cr = r1.headers.get('Content-Range');
     if (cr) { const m = cr.match(/\/(\d+)$/); if (m) totalSize = +m[1]; }
-    // If server returned 200 (no range support) treat as full file
     if (r1.status === 200) totalSize = null;
 
     const firstBuf  = await r1.arrayBuffer();
@@ -1682,30 +1814,22 @@ async function playAt(idx) {
 
     blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [firstUrl];
 
-    if (!isAu) {
-      audioEl.pause();
-      videoEl.src = firstUrl;
-      videoEl.volume = +document.getElementById('volR').value;
-      await videoEl.play();
-    } else {
-      stopMedia(false);
-      audioEl.src = firstUrl;
-      audioEl.volume = +document.getElementById('volR').value;
-      setupAudio();
-      await audioEl.play();
-      disc.classList.add('playing');
-    }
+    stopMedia(false);
+    audioEl.src = firstUrl;
+    audioEl.volume = +document.getElementById('volR').value;
+    setupAudio();
+    await audioEl.play();
+    disc.classList.add('playing');
 
     setPlayIcon(false);
     setNPActive(true);
     toast('▶ ' + clean);
     setLoad(false);
 
-    // ── Phase 2: fetch remaining chunks in background ──
-    // Only if the server supports Range requests and there's more data
+    // ── AUDIO: Phase 2 — background fetch remaining chunks ──
     if (totalSize && firstBuf.byteLength < totalSize) {
       streamController = new AbortController();
-      fetchBackground(file, firstBuf, totalSize, streamController.signal, isAu);
+      fetchBackground(file, firstBuf, totalSize, streamController.signal, true);
     }
 
   } catch(e) {
@@ -1744,11 +1868,17 @@ async function fetchBackground(file, firstBuf, totalSize, signal, isAu) {
   } catch(e) {
     if (e.name === 'AbortError') return; // user switched track — expected
     console.warn('[DrivePlayer] Background fetch error:', e);
+    // Release controller so ended events aren't permanently blocked
+    if (streamFileId === file.id) { streamController = null; }
     return;
   }
 
   // Abort or track change — don't upgrade
-  if (signal.aborted || streamFileId !== file.id) return;
+  if (signal.aborted || streamFileId !== file.id) {
+    // If we aborted but this is still the active track, release the guard
+    if (streamFileId === file.id) streamController = null;
+    return;
+  }
 
   // Full file assembled — upgrade src so the whole file is seekable
   const fullBlob = new Blob(chunks, { type: file.mimeType });
@@ -1764,15 +1894,32 @@ async function fetchBackground(file, firstBuf, totalSize, signal, isAu) {
   el.src   = fullUrl;
 
   el.addEventListener('loadedmetadata', () => {
+    // Seek to where we were before the upgrade
     el.currentTime = wasTime;
-    if (wasPlaying) el.play().catch(() => {});
+    if (wasPlaying) {
+      el.play().catch(() => {});
+    } else if (el.ended) {
+      // Audio ended on the partial chunk before upgrade finished —
+      // this means the full file is now ready and we were waiting on it.
+      // Do NOT call nextTrack() — the 'ended' guard already blocked it.
+      // Just leave paused at end; user can press next manually or
+      // auto-advance if repeat is on.
+      nextTrack();
+    }
     if (isAu && audioCtx?.state === 'suspended') audioCtx.resume();
+    // Release controller now that full file is loaded
+    streamController = null;
   }, { once: true });
 }
 
 function stopMedia(clear = true) {
-  // Cancel any in-progress background stream
-  if (clear && streamController) { streamController.abort(); streamController = null; streamFileId = null; }
+  // Cancel any in-progress background stream or video overlay download
+  if (streamController) { streamController.abort(); streamController = null; }
+  if (clear) { streamFileId = null; }
+  if (clear) {
+    const overlay = document.getElementById('videoOverlay');
+    if (overlay && overlay.classList.contains('open')) closeVideoOverlay();
+  }
   audioEl.pause(); videoEl.pause();
   if (clear) { audioEl.src = ''; videoEl.src = ''; }
   document.getElementById('disc').classList.remove('playing');
@@ -1977,14 +2124,21 @@ function drawVis() {
 //  PLAYER CONTROLS
 // ════════════════════════════════════════
 audioEl.addEventListener('timeupdate', updateProg);
-audioEl.addEventListener('ended', () => nextTrack());
+audioEl.addEventListener('ended', () => {
+  // Only advance if there's no background fetch in progress for this track.
+  // streamController is null once the full file is loaded and upgraded.
+  if (!streamController) nextTrack();
+  // If streamController is active, fetchBackground will handle playback
+  // continuation after the full-file src upgrade.
+});
 audioEl.addEventListener('loadedmetadata', () => { document.getElementById('tDur').textContent = fmtSec(audioEl.duration); });
 videoEl.addEventListener('timeupdate', updateProg);
 videoEl.addEventListener('ended', () => nextTrack());
 videoEl.addEventListener('loadedmetadata', () => { document.getElementById('tDur').textContent = fmtSec(videoEl.duration); });
 
 function updateProg() {
-  const el = videoEl.style.display !== 'none' ? videoEl : audioEl;
+  const ovOpen = document.getElementById('videoOverlay').classList.contains('open');
+  const el = ovOpen ? document.getElementById('overlayVideoEl') : audioEl;
   const pct = el.duration ? (el.currentTime / el.duration) * 100 : 0;
   document.getElementById('pf').style.width = pct + '%';
   document.getElementById('tCur').textContent = fmtSec(el.currentTime);
@@ -1992,20 +2146,31 @@ function updateProg() {
 
 function seekClick(e) {
   const r = document.getElementById('pt').getBoundingClientRect();
-  const el = videoEl.style.display !== 'none' ? videoEl : audioEl;
+  const ovOpen = document.getElementById('videoOverlay').classList.contains('open');
+  const el = ovOpen ? document.getElementById('overlayVideoEl') : audioEl;
   if (el.duration) el.currentTime = ((e.clientX - r.left) / r.width) * el.duration;
 }
 
 function togglePlay() {
-  const el = videoEl.style.display !== 'none' ? videoEl : audioEl;
-  if (!el.src && !el.currentSrc) return;
-  if (el.paused) {
-    el.play(); setPlayIcon(false);
+  const ovOpen = document.getElementById('videoOverlay').classList.contains('open');
+  if (ovOpen) {
+    const ovVid = document.getElementById('overlayVideoEl');
+    if (ovVid.paused) {
+      ovVid.play().catch(() => {}); setPlayIcon(false); setNPActive(true);
+    } else {
+      ovVid.pause(); setPlayIcon(true); setNPActive(false);
+    }
+    return;
+  }
+  // Audio path
+  if (!audioEl.src && !audioEl.currentSrc) return;
+  if (audioEl.paused) {
+    audioEl.play(); setPlayIcon(false);
     document.getElementById('disc').classList.add('playing');
     setNPActive(true);
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   } else {
-    el.pause(); setPlayIcon(true);
+    audioEl.pause(); setPlayIcon(true);
     document.getElementById('disc').classList.remove('playing');
     setNPActive(false);
   }
@@ -2023,7 +2188,14 @@ function nextTrack() {
   const m = filtered.filter(f => !f.mimeType.includes('folder'));
   if (!m.length) return;
   let n = isShuf ? rand(m.length) : m.indexOf(filtered[curIdx]) + 1;
-  if (n >= m.length) { if (isRepeat) n = 0; else { setPlayIcon(true); setNPActive(false); return; } }
+  if (n >= m.length) {
+    if (isRepeat) n = 0;
+    else {
+      const ov = document.getElementById('videoOverlay');
+      if (ov && ov.classList.contains('open')) closeVideoOverlay();
+      setPlayIcon(true); setNPActive(false); return;
+    }
+  }
   playAt(filtered.indexOf(m[n]));
 }
 
@@ -2149,6 +2321,132 @@ renderList = function() {
 // Close sidebar on orientation change / resize to desktop
 window.addEventListener('resize', () => {
   if (window.innerWidth > 768) closeSidebar();
+});
+
+
+// ════════════════════════════════════════
+//  VIDEO OVERLAY
+// ════════════════════════════════════════
+let overlayXHR       = null;   // current XHR download
+let overlayBlobUrl   = null;   // current video blob URL
+let overlayVideoFile = null;   // file object for next-track from overlay
+
+function openVideoOverlay(file, driveUrl, token, clean) {
+  overlayVideoFile = file;
+  const overlay  = document.getElementById('videoOverlay');
+  const loadPanel= document.getElementById('videoLoadingPanel');
+  const ovVideo  = document.getElementById('overlayVideoEl');
+  const nameEl   = document.getElementById('vloadName');
+  const progEl   = document.getElementById('vloadProg');
+  const pctEl    = document.getElementById('vloadPct');
+  const titleEl  = document.getElementById('videoOverlayTitle');
+
+  // Reset state
+  ovVideo.style.display = 'none';
+  ovVideo.src = '';
+  loadPanel.classList.remove('hidden');
+  progEl.style.width = '0%';
+  pctEl.textContent = '0%';
+  nameEl.textContent = clean;
+  titleEl.textContent = clean;
+
+  // Open overlay
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Cancel previous download
+  if (overlayXHR) { overlayXHR.abort(); overlayXHR = null; }
+  if (overlayBlobUrl) { URL.revokeObjectURL(overlayBlobUrl); overlayBlobUrl = null; }
+
+  // Use XHR so we get real download progress
+  const xhr = new XMLHttpRequest();
+  overlayXHR = xhr;
+  xhr.open('GET', driveUrl, true);
+  xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+  xhr.responseType = 'blob';
+
+  xhr.onprogress = (e) => {
+    if (e.lengthComputable && e.total > 0) {
+      const pct = Math.round((e.loaded / e.total) * 100);
+      progEl.style.width = pct + '%';
+      pctEl.textContent = pct + '%';
+    } else {
+      // Unknown size — show animated indeterminate bar
+      progEl.style.width = '100%';
+      progEl.style.animation = 'barShimmer 1s ease-in-out infinite';
+      pctEl.textContent = 'Loading…';
+    }
+  };
+
+  xhr.onload = () => {
+    if (xhr.status === 401) {
+      // Token expired mid-download — refresh and retry
+      closeVideoOverlay();
+      getValidToken().then(freshTok => openVideoOverlay(file, driveUrl, freshTok, clean));
+      return;
+    }
+    if (xhr.status < 200 || xhr.status >= 300) {
+      closeVideoOverlay();
+      toast('Video load failed: HTTP ' + xhr.status, true);
+      return;
+    }
+    overlayBlobUrl = URL.createObjectURL(xhr.response);
+    ovVideo.src = overlayBlobUrl;
+    ovVideo.volume = +document.getElementById('volR').value;
+    loadPanel.classList.add('hidden');
+    ovVideo.style.display = 'block';
+    // Wire progress bar + time display to overlay video
+    ovVideo.ontimeupdate = updateProg;
+    ovVideo.onloadedmetadata = () => {
+      document.getElementById('tDur').textContent = fmtSec(ovVideo.duration);
+    };
+    ovVideo.play().catch(e => console.warn('Video autoplay blocked:', e));
+    setPlayIcon(false); setNPActive(true);
+    overlayXHR = null;
+  };
+
+  xhr.onerror = () => {
+    closeVideoOverlay();
+    toast('Video download failed — check connection', true);
+  };
+
+  xhr.onabort = () => {}; // silent — user closed overlay
+
+  xhr.send();
+}
+
+function closeVideoOverlay() {
+  const overlay = document.getElementById('videoOverlay');
+  const ovVideo = document.getElementById('overlayVideoEl');
+
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+
+  // Stop and clean up
+  ovVideo.pause();
+  ovVideo.src = '';
+  if (overlayXHR) { overlayXHR.abort(); overlayXHR = null; }
+  if (overlayBlobUrl) { URL.revokeObjectURL(overlayBlobUrl); overlayBlobUrl = null; }
+
+  // Reset progress bar & time display
+  document.getElementById('pf').style.width = '0%';
+  document.getElementById('tCur').textContent = '0:00';
+  document.getElementById('tDur').textContent = '0:00';
+  setPlayIcon(true);
+  setNPActive(false);
+}
+
+function onOverlayVideoEnded() {
+  // Auto-play next video track if available
+  nextTrack();
+}
+
+// Close overlay on Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('videoOverlay');
+    if (overlay && overlay.classList.contains('open')) closeVideoOverlay();
+  }
 });
 
 </script>
