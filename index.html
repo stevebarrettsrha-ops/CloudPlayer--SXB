@@ -1198,7 +1198,7 @@ input[type=range]::-webkit-slider-thumb{
       </button>
     </div>
     <div class="bc" id="bc">
-      <span class="bci last" onclick="goRoot()">Music Library</span>
+      <span class="bci last" onclick="goRoot()">My Drive</span>
     </div>
     <div class="preload-status" id="preloadStatus"></div>
     <div class="fbar">
@@ -1394,8 +1394,8 @@ input[type=range]::-webkit-slider-thumb{
 const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.profile';
 const DISC   = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 
-// ── Default music folder on Google Drive ──
-const MUSIC_FOLDER_ID = '1-BpvON_8U9ynRP-qv2Ds1HUlwv9-AhTt';
+// ── Google Drive folder for storing metadata/cache ──
+const STORAGE_FOLDER_ID = '1-BpvON_8U9ynRP-qv2Ds1HUlwv9-AhTt';
 const METADATA_FILENAME = 'cloudplayer-metadata.json';
 const DB_NAME = 'CloudPlayerCache';
 const DB_VERSION = 1;
@@ -1408,7 +1408,7 @@ let isRefreshing = false;      // mutex: prevents concurrent refresh calls
 let refreshQueue = [];         // pending callbacks waiting for fresh token
 let gapiOk = false, gisOk = false;
 let allFiles = [], filtered = [], curIdx = -1, curFilter = 'all';
-let folderStack = [{ id: MUSIC_FOLDER_ID, name: 'Music Library' }];
+let folderStack = [{ id: 'root', name: 'My Drive' }];
 let isShuf = false, isRepeat = false, isMuted = false;
 let blobUrls = [];
 let streamController = null;   // AbortController for background chunk fetching
@@ -1785,7 +1785,7 @@ async function findOrCreateMetadataFile() {
 
   // Search for existing metadata file
   const searchRes = await gapi.client.drive.files.list({
-    q: `name='${METADATA_FILENAME}' and '${MUSIC_FOLDER_ID}' in parents and trashed=false`,
+    q: `name='${METADATA_FILENAME}' and '${STORAGE_FOLDER_ID}' in parents and trashed=false`,
     pageSize: 1,
     fields: 'files(id,name)'
   });
@@ -1799,7 +1799,7 @@ async function findOrCreateMetadataFile() {
   const metadata = {
     name: METADATA_FILENAME,
     mimeType: 'application/json',
-    parents: [MUSIC_FOLDER_ID]
+    parents: [STORAGE_FOLDER_ID]
   };
   const initData = JSON.stringify({ files: [], lastSync: Date.now(), version: 1 });
 
@@ -1882,16 +1882,17 @@ async function initLibrary() {
     toast(`${allFiles.filter(f => !f.mimeType.includes('folder')).length} tracks (cached)`);
   }
 
-  // 2. Fetch fresh file list from Drive (recursive scan)
+  // 2. Fetch fresh file list from Drive root (browse whole Drive)
   try {
-    const freshFiles = await fetchAllDriveFiles(MUSIC_FOLDER_ID);
+    const folderId = folderStack.at(-1).id;
+    const freshFiles = await fetchAllDriveFiles(folderId);
     allFiles = freshFiles;
     applyFilter();
     const n = allFiles.filter(f => !f.mimeType.includes('folder')).length;
     toast(`${n} media file${n !== 1 ? 's' : ''} loaded from Drive`);
 
     // Save to local cache
-    await setCachedLibrary({ files: allFiles, folderId: MUSIC_FOLDER_ID });
+    await setCachedLibrary({ files: allFiles, folderId });
 
     // 3. Sync metadata to cloud
     saveCloudMetadata({
@@ -2017,9 +2018,7 @@ async function loadDrive(folderId) {
     const n = allFiles.filter(f => !f.mimeType.includes('folder')).length;
     toast(`${n} media file${n !== 1 ? 's' : ''} found`);
     // Update local cache when browsing
-    if (folderId === MUSIC_FOLDER_ID) {
-      setCachedLibrary({ files: allFiles, folderId });
-    }
+    setCachedLibrary({ files: allFiles, folderId });
   } catch(e) { console.error(e); toast('Error loading Drive', true); }
   finally { setLoad(false); }
 }
@@ -2103,7 +2102,7 @@ function renderQueue() {
 }
 
 function openFolder(id, name) { folderStack.push({ id, name }); renderBC(); loadDrive(id); }
-function goRoot()              { folderStack = [{ id: MUSIC_FOLDER_ID, name: 'Music Library' }]; renderBC(); loadDrive(MUSIC_FOLDER_ID); }
+function goRoot()              { folderStack = [{ id: 'root', name: 'My Drive' }]; renderBC(); loadDrive('root'); }
 function navTo(i)              { folderStack = folderStack.slice(0, i + 1); renderBC(); loadDrive(folderStack[i].id); }
 function renderBC() {
   document.getElementById('bc').innerHTML = folderStack.map((f, i) => {
