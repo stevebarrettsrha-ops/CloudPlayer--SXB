@@ -1782,6 +1782,7 @@ async function getAllCachedFileIds() {
 /** Find or create the cloudplayer-metadata.json file in the music folder */
 async function findOrCreateMetadataFile() {
   const token = await getValidToken();
+  gapi.client.setToken({ access_token: token });
 
   // Search for existing metadata file
   const searchRes = await gapi.client.drive.files.list({
@@ -1874,43 +1875,64 @@ async function initLibrary() {
   toast('Loading music library…');
   setLoad(true);
 
-  // 1. Try local cache first for instant UI
+  let hasData = false;
+
+  // 1. Try local IndexedDB cache first for instant UI
   const cached = await getCachedLibrary();
   if (cached && cached.files && cached.files.length > 0) {
     allFiles = cached.files;
     applyFilter();
+    hasData = true;
     toast(`${allFiles.filter(f => !f.mimeType.includes('folder')).length} tracks (cached)`);
   }
 
-  // 2. Fetch fresh file list from Drive root (browse whole Drive)
+  // 2. If no local cache, try restoring from cloud metadata (cross-device sync)
+  if (!hasData) {
+    try {
+      const cloudData = await loadCloudMetadata();
+      if (cloudData && cloudData.files && cloudData.files.length > 0) {
+        allFiles = cloudData.files;
+        applyFilter();
+        hasData = true;
+        toast(`${allFiles.filter(f => !f.mimeType.includes('folder')).length} tracks (from cloud)`);
+        // Persist to local cache
+        await setCachedLibrary({ files: allFiles, folderId: 'cloud' });
+      }
+    } catch (e) {
+      console.warn('[Library] Cloud metadata restore failed:', e);
+    }
+  }
+
+  // 3. Fetch fresh file list from current Drive folder
   try {
     const folderId = folderStack.at(-1).id;
     const freshFiles = await fetchAllDriveFiles(folderId);
     allFiles = freshFiles;
     applyFilter();
+    hasData = true;
     const n = allFiles.filter(f => !f.mimeType.includes('folder')).length;
     toast(`${n} media file${n !== 1 ? 's' : ''} loaded from Drive`);
 
     // Save to local cache
     await setCachedLibrary({ files: allFiles, folderId });
 
-    // 3. Sync metadata to cloud
+    // 4. Sync metadata to cloud (fire-and-forget)
     saveCloudMetadata({
       files: allFiles.map(f => ({ id: f.id, name: f.name, mimeType: f.mimeType, size: f.size })),
       version: 1
     });
   } catch (e) {
     console.error('[Library] Drive fetch failed, using cache:', e);
-    if (!cached) toast('Error loading Drive', true);
+    if (!hasData) toast('Error loading Drive', true);
   }
 
   setLoad(false);
   renderBC();
 
-  // 4. Start background preload of all audio files
+  // 5. Start background preload of all audio files
   bulkPreload();
 
-  // 5. Auto-play first audio track if nothing is playing
+  // 6. Auto-play first audio track if nothing is playing
   if (curIdx < 0) {
     const firstAudio = filtered.findIndex(f => f.mimeType.includes('audio/'));
     if (firstAudio >= 0) playAt(firstAudio);
@@ -1960,6 +1982,9 @@ async function bulkPreload() {
 
   for (const file of uncached) {
     if (preloadAbort.signal.aborted) break;
+
+    // Skip the track currently being played/downloaded to avoid duplicate work
+    if (file.id === streamFileId) { continue; }
 
     try {
       const token = await getValidToken();
