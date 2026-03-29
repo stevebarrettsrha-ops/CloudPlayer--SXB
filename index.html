@@ -33,7 +33,8 @@
   --font-m:'JetBrains Mono',monospace;
 }
 
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-m);font-size:12px;overflow:hidden}
+html{height:100%;height:-webkit-fill-available}
+body{height:100%;height:-webkit-fill-available;background:var(--bg);color:var(--text);font-family:var(--font-m);font-size:12px;overflow:hidden}
 
 /* ═══════════════ SIGN-IN SCREEN ═══════════════ */
 #screenSignin{
@@ -184,6 +185,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   grid-template-columns:300px 1fr;
   grid-template-rows:58px 1fr 220px;
   height:100vh;
+  height:100dvh;
 }
 #screenApp.hidden{display:none!important}
 
@@ -210,6 +212,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .live-dot.on{
   background:var(--green);
   box-shadow:0 0 0 3px rgba(0,229,155,0.15),0 0 10px rgba(0,229,155,0.4);
+}
+/* Amber pulse while silently refreshing token */
+.live-dot.on.refreshing{
+  background:var(--amber);
+  box-shadow:0 0 0 3px rgba(240,184,64,0.2),0 0 10px rgba(240,184,64,0.5);
+  animation:tokenRefreshPulse 1s ease-in-out infinite;
+}
+@keyframes tokenRefreshPulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.5;transform:scale(0.8)}
 }
 .top-right{display:flex;align-items:center;gap:10px}
 .uchip{
@@ -238,6 +250,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .tbtn:hover{border-color:var(--cyan);color:var(--cyan)}
 .tbtn.danger{border-color:rgba(224,80,96,0.3);color:rgba(224,80,96,0.7)}
 .tbtn.danger:hover{border-color:var(--red);color:var(--red);background:rgba(224,80,96,0.06)}
+.tbtn.video-btn{border-color:rgba(26,127,255,0.35);color:var(--blue)}
+.tbtn.video-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
 
 /* ── Sidebar ── */
 .sidebar{
@@ -378,50 +392,140 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   position:relative;z-index:1;
 }
 
-/* art / disc */
+/* ── Art / CD disc ── */
 .art-wrap{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:14px}
+
+/* Outer glow ring (box, not the CD itself) */
 .disc-outer{
   position:relative;
   width:200px;height:200px;
 }
 .disc-ring{
-  position:absolute;inset:-6px;border-radius:22px;
-  background:conic-gradient(var(--cyan),var(--blue),var(--green),var(--cyan));
-  animation:ringRotate 4s linear infinite;
+  position:absolute;inset:-6px;border-radius:50%;
+  background:conic-gradient(var(--cyan),var(--blue),var(--green),var(--amber),var(--cyan));
+  animation:ringRotate 3s linear infinite;
   animation-play-state:paused;
-  opacity:0;transition:opacity .5s;
+  opacity:0;transition:opacity .6s;
+  filter:blur(1px);
 }
-.disc-ring-mask{position:absolute;inset:3px;border-radius:18px;background:var(--bg);z-index:1}
-.disc{
-  position:absolute;inset:0;z-index:2;
-  border-radius:18px;overflow:hidden;
-  background:var(--panel);
-  border:1px solid var(--border-hi);
-  box-shadow:0 20px 60px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.03);
-}
+.disc-ring-mask{position:absolute;inset:2px;border-radius:50%;background:var(--bg);z-index:1}
 .disc-outer:has(.disc.playing) .disc-ring{animation-play-state:running;opacity:1}
 @keyframes ringRotate{to{transform:rotate(360deg)}}
-#videoEl{width:100%;height:100%;object-fit:contain;display:none}
-.vf{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-.vinyl{
-  width:112px;height:112px;border-radius:50%;
-  background:conic-gradient(
-    #0a0f18 0deg,#141c2c 20deg,#0a0f18 40deg,#141c2c 60deg,
-    #0a0f18 80deg,#141c2c 100deg,#0a0f18 120deg,#141c2c 140deg,
-    #0a0f18 160deg,#141c2c 180deg,#0a0f18 200deg,#141c2c 220deg,
-    #0a0f18 240deg,#141c2c 260deg,#0a0f18 280deg,#141c2c 300deg,
-    #0a0f18 320deg,#141c2c 340deg,#0a0f18 360deg
-  );
-  box-shadow:0 0 0 5px #101624,0 0 0 6px #0a0f18;
+
+/* The disc itself — round like a CD */
+.disc{
+  position:absolute;inset:0;z-index:2;
+  border-radius:50%;overflow:hidden;
+  background:var(--panel);
+  border:1px solid rgba(255,255,255,0.06);
+  box-shadow:0 16px 48px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.04);
+}
+
+/* The CD: spins when playing */
+.cd{
+  width:100%;height:100%;
+  border-radius:50%;
   position:relative;
-  animation:vspin 6s linear infinite;animation-play-state:paused;
+  animation:cdSpin 4s linear infinite;
+  animation-play-state:paused;
+  transition:filter .4s;
 }
-.disc.playing .vinyl{animation-play-state:running}
-.vinyl::after{
-  content:'';position:absolute;inset:34%;border-radius:50%;
-  background:radial-gradient(circle,var(--cyan) 30%,#0a0f18 32%);
+.disc.playing .cd{animation-play-state:running}
+.disc.playing .cd{filter:drop-shadow(0 0 12px rgba(0,200,232,0.25))}
+@keyframes cdSpin{to{transform:rotate(360deg)}}
+
+/* Iridescent rainbow grooves — SVG-drawn as concentric rings */
+.cd-grooves{
+  position:absolute;inset:0;border-radius:50%;
+  background:
+    /* Iridescent shimmer base */
+    conic-gradient(
+      from 0deg,
+      rgba(0,200,232,0.55) 0deg,
+      rgba(100,60,255,0.5) 45deg,
+      rgba(255,60,180,0.45) 90deg,
+      rgba(255,160,0,0.5) 135deg,
+      rgba(0,229,155,0.55) 180deg,
+      rgba(0,180,255,0.5) 225deg,
+      rgba(160,0,255,0.45) 270deg,
+      rgba(0,200,232,0.55) 315deg,
+      rgba(100,60,255,0.5) 360deg
+    ),
+    /* Dark base */
+    radial-gradient(circle, #1a1a2e 0%, #0d0d1a 100%);
+  mix-blend-mode:normal;
 }
-@keyframes vspin{to{transform:rotate(360deg)}}
+/* Concentric groove rings overlay */
+.cd-grooves::before{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  background:repeating-radial-gradient(
+    circle at center,
+    transparent 0px,
+    transparent 3px,
+    rgba(0,0,0,0.18) 3px,
+    rgba(0,0,0,0.18) 4px
+  );
+}
+/* Reflective highlight sweep */
+.cd-grooves::after{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(
+    from 200deg,
+    transparent 0deg,
+    rgba(255,255,255,0.12) 20deg,
+    rgba(255,255,255,0.22) 30deg,
+    rgba(255,255,255,0.08) 45deg,
+    transparent 60deg
+  );
+}
+
+/* Centre label area */
+.cd-label{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:38%;height:38%;
+  border-radius:50%;
+  background:radial-gradient(circle at 40% 35%, #1c2a3a, #0a0f18);
+  border:1px solid rgba(0,200,232,0.15);
+  box-shadow:0 0 0 2px rgba(0,0,0,0.5), inset 0 0 12px rgba(0,0,0,0.6);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;
+  z-index:2;
+}
+/* Spindle hole */
+.cd-label::before{
+  content:'';
+  position:absolute;
+  width:10%;height:10%;
+  border-radius:50%;
+  background:radial-gradient(circle, #060a10, #1a2535);
+  box-shadow:0 0 0 1px rgba(0,200,232,0.2);
+}
+/* Logo text on the CD */
+.cd-logo{
+  font-family:var(--font-h);
+  font-size:10px;font-weight:400;
+  color:rgba(232,224,208,0.9);
+  letter-spacing:.04em;
+  line-height:1;
+  margin-top:8px;
+  text-align:center;
+}
+.cd-logo em{color:var(--cyan);font-style:italic}
+.cd-note{
+  font-family:var(--font-m);
+  font-size:5px;
+  color:rgba(0,200,232,0.5);
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+
+/* Idle state: slightly dimmer */
+.disc:not(.playing) .cd{opacity:0.75}
+
+#videoEl{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:none;border-radius:50%;z-index:3}
+.vf{display:none}  /* no separate vf layer — CD is the display */
 
 /* up-next queue */
 .queue{display:flex;gap:6px;max-width:200px;padding:2px 0;flex-direction:column}
@@ -597,7 +701,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   align-items:center;padding:0 26px;gap:24px;
   box-shadow:0 -1px 0 rgba(0,200,232,0.05);
   position:relative;z-index:20;
-  overflow:hidden;
+  overflow:visible;
 }
 /* subtle shimmer on bar */
 .pbar::before{
@@ -680,7 +784,7 @@ input[type=range]::-webkit-slider-thumb{
 
 /* toast */
 .toast{
-  position:fixed;bottom:240px;left:50%;
+  position:fixed;bottom:max(240px, calc(env(safe-area-inset-bottom) + 160px));left:50%;
   transform:translateX(-50%) translateY(14px);
   background:var(--panel2);
   border:1px solid var(--border-hi);
@@ -701,7 +805,7 @@ input[type=range]::-webkit-slider-thumb{
 .lib-toggle{
   display:none;
   background:none;border:1px solid var(--border);border-radius:8px;
-  color:var(--sub);width:34px;height:34px;
+  color:var(--sub);width:36px;height:36px;
   align-items:center;justify-content:center;cursor:pointer;
   transition:all .2s;flex-shrink:0;
 }
@@ -712,116 +816,148 @@ input[type=range]::-webkit-slider-thumb{
 .sidebar-backdrop{
   display:none;
   position:fixed;inset:0;z-index:28;
-  background:rgba(6,10,16,0.7);
+  background:rgba(6,10,16,0.75);
   backdrop-filter:blur(4px);
 }
 .sidebar-backdrop.open{display:block}
 
 @media (max-width:768px){
 
-  /* App shell: single column, sidebar becomes overlay */
+  /* ── CRITICAL: fix viewport height on Android Chrome ──
+     100vh includes the address bar on Android causing footer cutoff.
+     100dvh (dynamic viewport height) excludes browser chrome — always correct.
+     The -webkit-fill-available fallback handles older Safari. */
   #screenApp{
-    grid-template-columns:1fr !important;
-    grid-template-rows:52px 1fr auto !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 52px 1fr auto !important;
+    height: 100dvh !important;
+    height: -webkit-fill-available;
+    max-height: 100dvh;
   }
 
-  /* Topbar: tighten up */
-  .topbar{padding:0 14px;gap:0}
-  .app-logo{font-size:18px;gap:6px}
+  /* ── Topbar ── */
+  .topbar{padding:0 12px;gap:0;height:52px;flex-shrink:0}
+  .app-logo{font-size:17px;gap:6px}
   .live-dot{width:6px;height:6px}
-  /* Hide text labels on small screens, keep icons */
   .tbtn span.btn-lbl{display:none}
-  .tbtn{padding:6px 10px;gap:0;font-size:9px;letter-spacing:0}
-  /* Hide the username, just show avatar */
+  .tbtn{padding:7px 10px;gap:0}
   #topName{display:none}
   .uchip{padding:3px 6px 3px 3px;gap:0}
-  /* Show hamburger */
   .lib-toggle{display:flex}
 
-  /* Sidebar: slide in from left as overlay */
+  /* ── Sidebar drawer ── */
   .sidebar{
     position:fixed;
     top:52px;left:0;bottom:0;
     width:min(300px, 88vw);
     z-index:30;
     transform:translateX(-105%);
-    transition:transform .32s cubic-bezier(.4,0,.2,1);
+    transition:transform .3s cubic-bezier(.4,0,.2,1);
     border-right:1px solid var(--border);
-    box-shadow:8px 0 40px rgba(0,0,0,0.6);
+    box-shadow:8px 0 40px rgba(0,0,0,0.7);
   }
   .sidebar.open{transform:translateX(0)}
 
-  /* Stage: take full width */
-  .stage{grid-column:1}
-  .stage-inner{padding:16px 14px 14px}
+  /* ── Stage ── */
+  .stage{grid-column:1;overflow-y:auto;overflow-x:hidden}
+  .stage-inner{padding:14px 14px 8px;align-items:flex-start}
 
-  /* Now-playing: stack vertically */
+  /* ── Now-playing: disc centred above track info ── */
   .np-layout{
     flex-direction:column;
     align-items:center;
-    gap:16px;
+    gap:14px;
+    width:100%;
   }
-  .art-wrap{flex-direction:row;gap:16px;align-items:flex-start;width:100%}
-  .disc-outer{width:140px;height:140px;flex-shrink:0}
-  .disc-ring{inset:-4px;border-radius:18px}
-  .disc-ring-mask{inset:2px;border-radius:15px}
-  /* Queue chips beside disc on mobile */
-  .queue{
-    max-width:none;flex:1;
-    flex-direction:column;gap:5px;
-    max-height:140px;overflow-y:auto;
-    padding:0;
+  /* Disc centred, queue BELOW disc (not beside — avoids horizontal overflow) */
+  .art-wrap{
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    width:100%;
   }
-  .qchip{width:100%;font-size:8px}
-  .track-info{width:100%;padding-top:0}
-  .t-title{font-size:22px}
+  .disc-outer{width:130px;height:130px;flex-shrink:0}
+  .disc-ring{inset:-4px;border-radius:50%}
+  .disc-ring-mask{inset:2px;border-radius:50%}
 
-  /* Visualizer: smaller */
-  .vis-wrap{margin-top:14px}
-  #vc{height:40px}
+  /* Queue: horizontal scroll row under disc */
+  .queue{
+    flex-direction:row;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    overflow-y:hidden;
+    max-width:100%;
+    max-height:none;
+    gap:6px;
+    padding:2px 0;
+    -webkit-overflow-scrolling:touch;
+  }
+  .queue::-webkit-scrollbar{display:none}
+  .qchip{
+    width:auto;
+    min-width:100px;
+    max-width:160px;
+    flex-shrink:0;
+    font-size:9px;
+  }
+
+  /* Track info full width */
+  .track-info{width:100%;min-width:0;padding-top:0}
+  .t-title{font-size:20px;line-height:1.2}
+  .t-sub{font-size:10px;margin-top:2px}
+
+  /* Visualizer */
+  .vis-wrap{width:100%;margin-top:10px}
+  #vc{height:36px}
 
   /* EQ section */
-  .eq-section{margin-top:12px}
-  .eq-inner{padding:14px 12px 12px}
-  .eq-actions{gap:5px;flex-wrap:wrap}
-  .eq-action-btn{padding:5px 10px;font-size:8px}
-  .slider-wrap{width:24px}
-  .eq-slider{width:72px}
+  .eq-section{width:100%;margin-top:10px}
+  .eq-inner{padding:12px 10px 10px}
+  .eq-actions{gap:4px;flex-wrap:wrap;justify-content:center}
+  .eq-action-btn{padding:5px 10px;font-size:8px;letter-spacing:0}
+  .slider-wrap{width:22px}
+  .eq-slider{width:68px}
+  .eq-val{font-size:8px;min-width:28px}
+  .eq-band-label{font-size:8px}
+  .eq-band-freq{font-size:7px}
 
-  /* Player bar: two-row layout on mobile */
+  /* ── Player bar ── */
   .pbar{
-    grid-template-columns:1fr !important;
-    grid-template-rows:auto auto !important;
-    padding:10px 16px 14px;gap:10px;
-    align-items:stretch;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto !important;
+    padding: 10px 16px max(14px, env(safe-area-inset-bottom)) !important;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+    /* Ensure bar is always fully visible */
+    position: relative;
+    z-index: 20;
   }
-  .prog-col{order:0;gap:5px}
-  .ctrl-col{order:1;justify-content:center;gap:2px}
-  .vol-col{display:none}  /* hide volume on mobile — use device volume */
+  .prog-col{order:0;width:100%}
+  .ctrl-col{order:1;justify-content:center;gap:0}
+  .vol-col{display:none}
 
-  /* Bigger touch targets */
-  .cbtn{width:44px;height:44px}
+  /* Touch-friendly controls */
+  .cbtn{width:46px;height:46px}
   .cbtn svg{width:20px;height:20px}
-  .play-btn{width:58px;height:58px}
-  .play-btn svg{width:22px;height:22px}
-
-  /* Progress scrubber bigger tap area */
-  .prog-track{height:5px}
+  .play-btn{width:60px;height:60px;box-shadow:0 4px 16px rgba(0,200,232,0.4)}
+  .play-btn svg{width:24px;height:24px}
+  .prog-track{height:5px;cursor:pointer}
   .prog-track:hover{height:5px}
-  .prog-fill::after{width:16px;height:16px;right:-8px;opacity:1}
-
-  /* Player bar height fix */
-  .pbar{min-height:auto}
+  .prog-fill::after{width:18px;height:18px;right:-9px;opacity:1}
+  .time-row{font-size:11px}
 }
 
-@media (max-width:480px){
-  .app-logo{font-size:16px}
-  .tbtn{padding:5px 8px}
+@media (max-width:430px){
   .disc-outer{width:110px;height:110px}
-  .t-title{font-size:19px}
-  .stage-inner{padding:12px 10px}
-  .np-layout{gap:12px}
-  .art-wrap{gap:12px}
+  .cd-logo{font-size:8px}
+  .cd-note{display:none}
+  .t-title{font-size:18px}
+  .stage-inner{padding:12px 10px 6px}
+  .app-logo{font-size:15px}
+  .cbtn{width:42px;height:42px}
+  .play-btn{width:56px;height:56px}
+  .eq-slider{width:60px}
 }
 
 </style>
@@ -894,6 +1030,10 @@ input[type=range]::-webkit-slider-thumb{
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
         <span class="btn-lbl">Setup</span>
       </button>
+      <button class="tbtn video-btn" onclick="openVideoPlayer()" title="Video Player">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <span class="btn-lbl">Videos</span>
+      </button>
       <button class="tbtn danger" onclick="signOut()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
         <span class="btn-lbl">Sign Out</span>
@@ -947,8 +1087,13 @@ input[type=range]::-webkit-slider-thumb{
             <div class="disc-ring-mask"></div>
             <div class="disc" id="disc">
               <video id="videoEl"></video>
-              <div class="vf" id="vf">
-                <div class="vinyl"></div>
+              <!-- CD with spinning grooves + logo -->
+              <div class="cd" id="cdDisc">
+                <div class="cd-grooves"></div>
+                <div class="cd-label">
+                  <div class="cd-logo">Drive<em>Player</em></div>
+                  <div class="cd-note">▶ audio</div>
+                </div>
               </div>
             </div>
           </div>
@@ -1072,8 +1217,12 @@ input[type=range]::-webkit-slider-thumb{
 const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile';
 const DISC   = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 
-let CLIENT_ID   = localStorage.getItem('dp_cid') || '745322669687-dhrv25ih7g2ckomq41v7bvghu0shsrvv.apps.googleusercontent.com';
-let accessToken = null, tokenClient = null;
+let CLIENT_ID    = localStorage.getItem('dp_cid') || '745322669687-dhrv25ih7g2ckomq41v7bvghu0shsrvv.apps.googleusercontent.com';
+let accessToken  = null, tokenClient = null;
+let tokenExpiry  = 0;          // ms epoch when current token expires
+let refreshTimer = null;       // proactive refresh setTimeout handle
+let isRefreshing = false;      // mutex: prevents concurrent refresh calls
+let refreshQueue = [];         // pending callbacks waiting for fresh token
 let gapiOk = false, gisOk = false;
 let allFiles = [], filtered = [], curIdx = -1, curFilter = 'all';
 let folderStack = [{ id: 'root', name: 'My Drive' }];
@@ -1164,6 +1313,86 @@ function buildTC() {
 }
 
 // ════════════════════════════════════════
+//  TOKEN REFRESH SYSTEM
+// ════════════════════════════════════════
+
+/**
+ * Schedule a proactive token refresh 5 minutes before expiry.
+ * Google tokens last 1 hour; this keeps the player alive indefinitely.
+ */
+function scheduleTokenRefresh(lifetimeMs) {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  // Refresh 5 min (300s) before expiry — or immediately if already close
+  const delay = Math.max(0, lifetimeMs - 300_000);
+  refreshTimer = setTimeout(() => {
+    console.log('[DrivePlayer] Proactively refreshing token…');
+    silentRefresh();
+  }, delay);
+}
+
+/**
+ * Silently request a new access token without any user-visible popup.
+ * Uses prompt:'' so Google reuses the existing session — no interaction needed
+ * as long as the user hasn't revoked access.
+ */
+function silentRefresh() {
+  if (!tokenClient) return;
+  setLiveDotRefreshing(true);
+  tokenClient.requestAccessToken({ prompt: '' });
+  // onToken() will fire with the new token, resolve the queue, and reschedule
+}
+
+/**
+ * Returns a Promise that resolves to a valid access token.
+ * If the current token is still fresh, resolves immediately.
+ * If expired (or close to expiry), triggers a silent refresh and waits.
+ */
+function getValidToken() {
+  const MARGIN = 60_000; // 1 min safety margin
+  if (accessToken && Date.now() < tokenExpiry - MARGIN) {
+    return Promise.resolve(accessToken);
+  }
+  // Token is stale — queue up and trigger refresh
+  return new Promise((resolve) => {
+    refreshQueue.push(resolve);
+    if (!isRefreshing) {
+      isRefreshing = true;
+      silentRefresh();
+    }
+  });
+}
+
+/**
+ * Thin fetch wrapper that injects a valid token and retries once on 401.
+ * All Drive API calls should go through this.
+ */
+async function authFetch(url, opts = {}) {
+  const token = await getValidToken();
+  const headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token };
+  let r = await fetch(url, { ...opts, headers });
+
+  if (r.status === 401) {
+    // Token was rejected — force a refresh and retry exactly once
+    console.warn('[DrivePlayer] 401 received — refreshing token and retrying…');
+    const fresh = await new Promise((resolve) => {
+      refreshQueue.push(resolve);
+      isRefreshing = true;
+      silentRefresh();
+    });
+    const retryHeaders = { ...(opts.headers || {}), Authorization: 'Bearer ' + fresh };
+    r = await fetch(url, { ...opts, headers: retryHeaders });
+  }
+  return r;
+}
+
+/** Visual indicator on the live dot while refreshing */
+function setLiveDotRefreshing(on) {
+  const dot = document.getElementById('liveDot');
+  if (!dot) return;
+  dot.classList.toggle('refreshing', on);
+}
+
+// ════════════════════════════════════════
 //  CLIENT ID
 // ════════════════════════════════════════
 window.addEventListener('load', () => {
@@ -1203,12 +1432,21 @@ function startSignIn() {
 
 async function onToken(resp) {
   if (resp.error) { setErr('Sign-in failed: ' + resp.error); btnIdle(); return; }
-  accessToken = resp.access_token;
+  accessToken  = resp.access_token;
+  // Google tokens last 3600s; store expiry with 60s safety margin
+  const lifetime = (resp.expires_in || 3600) * 1000;
+  tokenExpiry  = Date.now() + lifetime;
   gapi.client.setToken({ access_token: accessToken });
+  scheduleTokenRefresh(lifetime);
+  // Resolve any callers waiting for a fresh token
+  const q = refreshQueue.splice(0);
+  q.forEach(cb => cb(accessToken));
+  isRefreshing = false;
+  setLiveDotRefreshing(false);
   btnLoading('Loading profile…');
   let user = {};
   try {
-    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: 'Bearer ' + accessToken } });
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: 'Bearer ' + accessToken } }); // userinfo at sign-in — token fresh here
     user = await r.json();
   } catch(e) {}
   const name = user.name || user.email || 'Google User';
@@ -1225,6 +1463,8 @@ async function onToken(resp) {
 }
 
 function signOut() {
+  if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
+  isRefreshing = false; refreshQueue = []; tokenExpiry = 0;
   if (accessToken) { try { google.accounts.oauth2.revoke(accessToken); } catch(e) {} }
   accessToken = null; gapi.client.setToken(null);
   allFiles = []; filtered = []; curIdx = -1;
@@ -1273,6 +1513,9 @@ async function loadDrive(folderId) {
   setLoad(true);
   try {
     const q = `(mimeType contains 'audio/' or mimeType contains 'video/' or mimeType='application/vnd.google-apps.folder') and '${folderId}' in parents and trashed=false`;
+    // Ensure token is fresh before Drive API call
+    const tok = await getValidToken();
+    gapi.client.setToken({ access_token: tok });
     const res = await gapi.client.drive.files.list({ q, pageSize: 300, orderBy: 'name', fields: 'files(id,name,mimeType,size,videoMediaMetadata)' });
     allFiles = res.result.files || [];
     applyFilter();
@@ -1384,12 +1627,14 @@ async function playAt(idx) {
   document.getElementById('tSub').textContent = file.mimeType.split('/')[1].toUpperCase() + ' · Google Drive';
 
   const disc = document.getElementById('disc');
+  const cd   = document.getElementById('cdDisc');
   if (!isAu) {
-    document.getElementById('vf').style.display = 'none';
+    if (cd) cd.style.display = 'none';
     videoEl.style.display = 'block';
+    videoEl.style.borderRadius = '50%';
     disc.classList.remove('playing');
   } else {
-    document.getElementById('vf').style.display = 'flex';
+    if (cd) cd.style.display = 'block';
     videoEl.style.display = 'none';
   }
 
@@ -1399,7 +1644,7 @@ async function playAt(idx) {
   renderQueue(); setLoad(true); toast('⏳ Buffering…');
 
   try {
-    const r = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const r = await authFetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`);
     if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
     const blob = await r.blob();
     blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [];
@@ -1424,6 +1669,9 @@ function stopMedia(clear = true) {
   audioEl.pause(); videoEl.pause();
   if (clear) { audioEl.src = ''; videoEl.src = ''; }
   document.getElementById('disc').classList.remove('playing');
+  const cd = document.getElementById('cdDisc');
+  if (cd) cd.style.display = 'block';
+  videoEl.style.display = 'none';
   setPlayIcon(true); setNPActive(false);
 }
 
@@ -1745,6 +1993,19 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowUp')   { const v = document.getElementById('volR'); v.value = Math.min(1, +v.value + .05); setVol(v.value); }
   if (e.key === 'ArrowDown') { const v = document.getElementById('volR'); v.value = Math.max(0, +v.value - .05); setVol(v.value); }
 });
+
+// ════════════════════════════════════════
+//  VIDEO PLAYER NAVIGATION
+// ════════════════════════════════════════
+function openVideoPlayer() {
+  if (!accessToken) { toast('Sign in first', true); return; }
+  // Pass auth token to video page via sessionStorage
+  sessionStorage.setItem('dp_token', accessToken);
+  sessionStorage.setItem('dp_user',  document.getElementById('topName').textContent || '');
+  const avatar = document.getElementById('topAv');
+  sessionStorage.setItem('dp_avatar', avatar ? avatar.innerHTML : '');
+  window.open('VideoPlayer.html', '_blank');
+}
 
 // ════════════════════════════════════════
 //  MOBILE SIDEBAR TOGGLE
