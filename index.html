@@ -865,31 +865,42 @@ input[type=range]::-webkit-slider-thumb{
   .disc-ring{inset:-4px;border-radius:50%}
   .disc-ring-mask{inset:2px;border-radius:50%}
 
-  /* ── Now-playing row: disc left, chips+info stacked right ── */
+  /* ── Now-playing: track info TOP, disc + queue below ── */
   .np-layout{
-    flex-direction:row !important;
+    flex-direction:column !important;
     align-items:flex-start;
-    gap:14px;
+    gap:12px;
     width:100%;
   }
-  .art-wrap{
-    flex-direction:column;
-    align-items:center;
-    gap:8px;
-    flex-shrink:0;
-    width:auto;
-  }
-  .disc-outer{width:120px;height:120px}
 
-  /* Queue chips: vertical stack, full width of right column */
+  /* Track info comes first (top) */
+  .track-info{
+    order:-1;
+    width:100%;
+    min-width:0;
+    padding-top:0;
+  }
+  .t-title{font-size:20px;line-height:1.2}
+  .t-sub{font-size:10px;margin-top:2px}
+
+  /* Disc + queue in a row below the text */
+  .art-wrap{
+    flex-direction:row;
+    align-items:flex-start;
+    gap:12px;
+    width:100%;
+  }
+  .disc-outer{width:110px;height:110px;flex-shrink:0}
+
+  /* Queue chips: vertical stack beside disc */
   .queue{
     flex-direction:column !important;
     flex-wrap:nowrap;
     overflow-x:hidden;
     overflow-y:auto;
     max-width:none;
-    max-height:150px;
-    width:100%;
+    max-height:110px;
+    flex:1;
     gap:5px;
     padding:2px 0;
     -webkit-overflow-scrolling:touch;
@@ -904,17 +915,6 @@ input[type=range]::-webkit-slider-thumb{
     font-size:9px;
     box-sizing:border-box;
   }
-
-  /* Right column: chips above, track info below */
-  .art-wrap ~ .track-info,
-  .track-info{
-    flex:1;
-    min-width:0;
-    width:100%;
-    padding-top:0;
-  }
-  .t-title{font-size:18px;line-height:1.2}
-  .t-sub{font-size:10px;margin-top:2px}
 
   /* Visualizer */
   .vis-wrap{width:100%;margin-top:10px}
