@@ -979,85 +979,121 @@ input[type=range]::-webkit-slider-thumb{
 .video-overlay{
   display:none;
   position:fixed;inset:0;z-index:200;
-  background:rgba(0,0,0,0.92);
-  backdrop-filter:blur(8px);
+  background:#000;
   flex-direction:column;
-  align-items:center;justify-content:center;
-  padding:20px;
-  animation:overlayIn .25s ease;
+  align-items:stretch;
+  justify-content:flex-start;
+  animation:overlayIn .2s ease;
 }
 .video-overlay.open{display:flex}
-@keyframes overlayIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+@keyframes overlayIn{from{opacity:0}to{opacity:1}}
 
+/* Header bar */
+.video-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;
+  background:rgba(0,0,0,0.85);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  flex-shrink:0;
+  z-index:10;
+}
+.video-title{
+  font-family:var(--font-h);font-size:18px;font-weight:300;
+  color:#fff;letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  flex:1;margin-right:12px;
+}
+.video-close{
+  background:rgba(255,255,255,0.1);
+  border:1px solid rgba(255,255,255,0.2);
+  border-radius:50%;
+  color:#fff;width:36px;height:36px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .2s;
+}
+.video-close:hover{background:rgba(224,80,96,0.3);border-color:var(--red)}
+.video-close svg{width:16px;height:16px}
+
+/* Video area — fills the remaining height */
 .video-box{
+  flex:1;
   position:relative;
-  width:100%;max-width:900px;
+  display:flex;align-items:center;justify-content:center;
   background:#000;
-  border-radius:14px;
-  overflow:visible;  /* must NOT clip — browser native video controls sit outside box */
-  box-shadow:0 40px 100px rgba(0,0,0,.8);
-  border:1px solid var(--border-hi);
-}
-.video-box video{
-  width:100%;height:auto;
-  max-height:80vh;
-  display:block;
-  border-radius:14px;
+  overflow:hidden;
+  min-height:0;
 }
 
-/* Loading state inside overlay */
+/* The actual video — fills the box, letterboxed */
+#overlayVideoEl{
+  width:100%;
+  height:100%;
+  max-height:100%;
+  object-fit:contain;
+  display:none;
+  background:#000;
+  /* CRITICAL: ensure it's the top-most and fully interactive */
+  position:relative;
+  z-index:5;
+}
+
+/* Loading panel — sits UNDER the video (z-index lower than video) */
 .video-loading{
   position:absolute;inset:0;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:16px;background:var(--panel);border-radius:14px;
-  z-index:5;
+  gap:18px;
+  z-index:2; /* UNDER the video element's z-index:5 */
+  pointer-events:none;
 }
 .video-loading.hidden{display:none}
 .vload-spinner{
-  width:48px;height:48px;border-radius:50%;
-  border:3px solid var(--border-hi);
+  width:52px;height:52px;border-radius:50%;
+  border:3px solid rgba(255,255,255,0.15);
   border-top-color:var(--cyan);
   animation:vspin2 0.8s linear infinite;
 }
 @keyframes vspin2{to{transform:rotate(360deg)}}
 .vload-name{
-  font-family:var(--font-h);font-size:20px;color:var(--warm);
-  letter-spacing:.02em;text-align:center;padding:0 20px;
-  max-width:500px;
+  font-family:var(--font-h);font-size:22px;color:#fff;
+  letter-spacing:.02em;text-align:center;padding:0 24px;
+  max-width:500px;text-shadow:0 2px 8px rgba(0,0,0,0.8);
 }
 .vload-prog-wrap{
-  width:280px;background:var(--panel2);border-radius:4px;height:4px;overflow:hidden;
+  width:300px;max-width:80vw;
+  background:rgba(255,255,255,0.1);
+  border-radius:4px;height:4px;overflow:hidden;
 }
 .vload-prog{
-  height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));
-  border-radius:4px;width:0%;transition:width .3s;
+  height:100%;
+  background:linear-gradient(90deg,var(--cyan),var(--blue));
+  border-radius:4px;width:0%;transition:width .25s;
 }
-.vload-pct{font-size:11px;color:var(--sub);letter-spacing:.06em}
+.vload-pct{font-size:12px;color:rgba(255,255,255,0.6);letter-spacing:.06em}
 
-/* Overlay header bar */
-.video-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px 16px 10px;width:100%;max-width:900px;
-  flex-shrink:0;
+/* Tap-to-play overlay — shown if autoplay is blocked */
+.video-tap-play{
+  display:none;
+  position:absolute;inset:0;z-index:6;
+  align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.3);
+  cursor:pointer;
 }
-.video-title{
-  font-family:var(--font-h);font-size:20px;font-weight:300;
-  color:var(--warm);letter-spacing:.02em;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  max-width:calc(100% - 48px);
-}
-.video-close{
-  background:var(--panel);border:1px solid var(--border);border-radius:50%;
-  color:var(--text);width:36px;height:36px;flex-shrink:0;
+.video-tap-play.show{display:flex}
+.video-tap-btn{
+  width:72px;height:72px;border-radius:50%;
+  background:rgba(0,200,232,0.9);
   display:flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:all .2s;
+  box-shadow:0 0 40px rgba(0,200,232,0.5);
+  transition:transform .15s;
 }
-.video-close:hover{border-color:var(--red);color:var(--red);background:rgba(224,80,96,.1)}
-.video-close svg{width:16px;height:16px}
+.video-tap-btn:hover{transform:scale(1.1)}
+.video-tap-btn svg{width:28px;height:28px;color:#000;margin-left:4px}
 
 @media(max-width:600px){
-  .video-box video{max-height:60vh}
   .video-title{font-size:15px}
+  .vload-name{font-size:18px}
+  .video-tap-btn{width:60px;height:60px}
 }
 
 </style>
@@ -1192,7 +1228,7 @@ input[type=range]::-webkit-slider-thumb{
                 <div class="cd-grooves"></div>
                 <div class="cd-label">
                   <div class="cd-logo">Drive<em>Player</em></div>
-                  <div class="cd-note">▶ audio</div>
+                  <div class="cd-note" id="cdNote">▶ audio</div>
                 </div>
               </div>
             </div>
@@ -1318,19 +1354,24 @@ input[type=range]::-webkit-slider-thumb{
       </svg>
     </button>
   </div>
-  <div class="video-box">
-    <!-- Loading indicator -->
+  <div class="video-box" id="videoBox">
+    <!-- Loading panel (z-index:2 — behind the video) -->
     <div class="video-loading" id="videoLoadingPanel">
       <div class="vload-spinner"></div>
       <div class="vload-name" id="vloadName">Preparing video…</div>
       <div class="vload-prog-wrap"><div class="vload-prog" id="vloadProg"></div></div>
       <div class="vload-pct" id="vloadPct">0%</div>
     </div>
-    <!-- Actual video element (with controls, NO overflow clip) -->
+    <!-- Video element (z-index:5 — on top of loading panel) -->
     <video id="overlayVideoEl" controls preload="auto"
-           style="display:none"
            onended="onOverlayVideoEnded()">
     </video>
+    <!-- Tap-to-play fallback if autoplay is blocked -->
+    <div class="video-tap-play" id="videoTapPlay" onclick="tapToPlay()">
+      <div class="video-tap-btn">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1742,17 +1783,19 @@ function renderBC() {
 }
 
 // ════════════════════════════════════════
-//  PLAYBACK  (streaming — starts after first 1 MB)
+//  PLAYBACK  — full XHR download with progress, no chunking
 // ════════════════════════════════════════
 
-const FIRST_CHUNK  = 4_194_304;   // 4 MB  — enough for ~4 min at 128kbps / ~2.5 min at 192kbps
-const BG_CHUNK     = 3_145_728;   // 3 MB  — subsequent background chunks
+// Track XHR for current audio download (so we can abort on track change)
+let audioXHR     = null;
+let audioBlobUrl = null;
 
 async function playAt(idx) {
   const file = filtered[idx];
   if (!file || file.mimeType === 'application/vnd.google-apps.folder') return;
 
-  // Cancel any in-progress background stream for previous track
+  // Cancel any previous audio XHR
+  if (audioXHR) { audioXHR.abort(); audioXHR = null; }
   if (streamController) { streamController.abort(); streamController = null; }
   streamFileId = file.id;
 
@@ -1761,14 +1804,14 @@ async function playAt(idx) {
   const clean = file.name.replace(/\.[^.]+$/, '');
 
   document.getElementById('tTitle').textContent = clean;
-  document.getElementById('tSub').textContent = file.mimeType.split('/')[1].toUpperCase() + ' · Google Drive';
+  document.getElementById('tSub').textContent   =
+    file.mimeType.split('/')[1].toUpperCase() + ' · Google Drive';
 
   const disc = document.getElementById('disc');
   const cd   = document.getElementById('cdDisc');
   if (!isAu) {
     if (cd) cd.style.display = 'none';
     videoEl.style.display = 'block';
-    videoEl.style.borderRadius = '50%';
     disc.classList.remove('playing');
   } else {
     if (cd) cd.style.display = 'block';
@@ -1777,143 +1820,119 @@ async function playAt(idx) {
 
   document.querySelectorAll('.fitem').forEach(e => e.classList.remove('now'));
   const li = document.querySelector(`.fitem[data-i="${idx}"]`);
-  if (li) { li.classList.add('now'); li.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  if (li) { li.classList.add('now'); li.scrollIntoView({ block:'nearest', behavior:'smooth' }); }
   renderQueue();
-  setLoad(true);
-  toast('⏳ Loading…');
 
-  try {
-    const driveUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
-    const token    = await getValidToken();
+  const driveUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
+  const token    = await getValidToken();
 
-    if (!isAu) {
-      // ── VIDEO: open overlay and download with progress ──
-      // MP4 moov atoms are often at the end — Range streaming doesn't work.
-      // Download fully with XHR progress, then play in the overlay.
-      setLoad(false);
-      openVideoOverlay(file, driveUrl, token, clean);
-      return; // overlay handles everything from here
-    }
-
-    // ── AUDIO: Phase 1 — fetch first 1 MB and start playing immediately ──
-    const r1 = await fetch(driveUrl, {
-      headers: { Authorization: 'Bearer ' + token, Range: `bytes=0-${FIRST_CHUNK - 1}` }
-    });
-
-    if (r1.status === 401) throw new Error('Unauthorised — try signing out and back in');
-    if (!r1.ok && r1.status !== 206) throw new Error(`HTTP ${r1.status}`);
-
-    let totalSize = null;
-    const cr = r1.headers.get('Content-Range');
-    if (cr) { const m = cr.match(/\/(\d+)$/); if (m) totalSize = +m[1]; }
-    if (r1.status === 200) totalSize = null;
-
-    const firstBuf  = await r1.arrayBuffer();
-    const firstBlob = new Blob([firstBuf], { type: file.mimeType });
-    const firstUrl  = URL.createObjectURL(firstBlob);
-
-    blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [firstUrl];
-
-    stopMedia(false);
-    audioEl.src = firstUrl;
-    audioEl.volume = +document.getElementById('volR').value;
-    setupAudio();
-    await audioEl.play();
-    disc.classList.add('playing');
-
-    setPlayIcon(false);
-    setNPActive(true);
-    toast('▶ ' + clean);
+  if (!isAu) {
+    // Video — full XHR download handled by overlay
     setLoad(false);
-
-    // ── AUDIO: Phase 2 — background fetch remaining chunks ──
-    if (totalSize && firstBuf.byteLength < totalSize) {
-      streamController = new AbortController();
-      fetchBackground(file, firstBuf, totalSize, streamController.signal, true);
-    }
-
-  } catch(e) {
-    console.error(e);
-    toast('Playback failed — ' + e.message, true);
-    setLoad(false);
+    openVideoOverlay(file, driveUrl, token, clean);
+    return;
   }
+
+  // ── AUDIO — full XHR download with progress indicator ──
+  stopMedia(false);
+  setLoad(true);
+  showAudioProgress(clean);
+
+  downloadAudio(file, driveUrl, token, clean);
 }
 
-/**
- * Continues fetching the file in 2 MB chunks after the first chunk is playing.
- * When complete, silently upgrades the src so the full file is seekable.
- */
-async function fetchBackground(file, firstBuf, totalSize, signal, isAu) {
-  const driveUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
-  const chunks   = [firstBuf];
-  let   offset   = firstBuf.byteLength;
+/** Show a slim in-CD progress indicator while loading */
+function showAudioProgress(name) {
+  const note = document.getElementById('cdNote');
+  if (note) note.textContent = '⏳ loading…';
+  toast('⏳ ' + name);
+}
 
-  try {
-    while (offset < totalSize && !signal.aborted && streamFileId === file.id) {
-      const end   = Math.min(offset + BG_CHUNK - 1, totalSize - 1);
-      const token = await getValidToken();
+/** Full XHR download for audio — exactly like video overlay */
+function downloadAudio(file, driveUrl, token, clean) {
+  const xhr = new XMLHttpRequest();
+  audioXHR  = xhr;
+  xhr.open('GET', driveUrl, true);
+  xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+  xhr.responseType = 'blob';
 
-      const r = await fetch(driveUrl, {
-        signal,
-        headers: { Authorization: 'Bearer ' + token, Range: `bytes=${offset}-${end}` }
-      });
+  let lastPct = 0;
 
-      if (!r.ok && r.status !== 206) break;
-      const buf = await r.arrayBuffer();
-      if (signal.aborted || streamFileId !== file.id) return;
-
-      chunks.push(buf);
-      offset += buf.byteLength;
+  xhr.onprogress = (e) => {
+    if (e.lengthComputable && e.total > 0) {
+      const pct = Math.round((e.loaded / e.total) * 100);
+      if (pct !== lastPct) {
+        lastPct = pct;
+        // Update loading bar
+        const lb = document.getElementById('lb');
+        if (lb) { lb.style.transition = 'none'; lb.style.width = pct + '%'; }
+        // Update cd label
+        const note = document.getElementById('cdNote');
+        if (note) note.textContent = pct + '%';
+        toast('⏳ ' + pct + '%', false);
+      }
     }
-  } catch(e) {
-    if (e.name === 'AbortError') return; // user switched track — expected
-    console.warn('[DrivePlayer] Background fetch error:', e);
-    // Release controller so ended events aren't permanently blocked
-    if (streamFileId === file.id) { streamController = null; }
-    return;
-  }
+  };
 
-  // Abort or track change — don't upgrade
-  if (signal.aborted || streamFileId !== file.id) {
-    // If we aborted but this is still the active track, release the guard
-    if (streamFileId === file.id) streamController = null;
-    return;
-  }
+  xhr.onload = async () => {
+    audioXHR = null;
+    setLoad(false);
 
-  // Full file assembled — upgrade src so the whole file is seekable
-  const fullBlob = new Blob(chunks, { type: file.mimeType });
-  const fullUrl  = URL.createObjectURL(fullBlob);
-
-  const el        = isAu ? audioEl : videoEl;
-  const wasTime   = el.currentTime;
-  const wasPlaying = !el.paused;
-
-  // Swap URL; restore position
-  blobUrls.forEach(u => URL.revokeObjectURL(u));
-  blobUrls = [fullUrl];
-  el.src   = fullUrl;
-
-  el.addEventListener('loadedmetadata', () => {
-    // Seek to where we were before the upgrade
-    el.currentTime = wasTime;
-    if (wasPlaying) {
-      el.play().catch(() => {});
-    } else if (el.ended) {
-      // Audio ended on the partial chunk before upgrade finished —
-      // this means the full file is now ready and we were waiting on it.
-      // Do NOT call nextTrack() — the 'ended' guard already blocked it.
-      // Just leave paused at end; user can press next manually or
-      // auto-advance if repeat is on.
-      nextTrack();
+    if (xhr.status === 401) {
+      // Token expired — refresh and retry once
+      const fresh = await getValidToken();
+      return downloadAudio(file, driveUrl, fresh, clean);
     }
-    if (isAu && audioCtx?.state === 'suspended') audioCtx.resume();
-    // Release controller now that full file is loaded
-    streamController = null;
-  }, { once: true });
+    if (xhr.status < 200 || xhr.status >= 300) {
+      toast('Load failed: HTTP ' + xhr.status, true);
+      return;
+    }
+
+    // Revoke previous blob
+    if (audioBlobUrl) { URL.revokeObjectURL(audioBlobUrl); }
+    blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [];
+    audioBlobUrl = URL.createObjectURL(xhr.response);
+    blobUrls.push(audioBlobUrl);
+
+    // Check user didn't switch tracks while downloading
+    if (streamFileId !== file.id) return;
+
+    const disc = document.getElementById('disc');
+    const note = document.getElementById('cdNote');
+    if (note) note.textContent = '▶ audio';
+
+    stopMedia(false);
+    audioEl.src    = audioBlobUrl;
+    audioEl.volume = +document.getElementById('volR').value;
+    setupAudio();
+
+    try {
+      await audioEl.play();
+      disc.classList.add('playing');
+      setPlayIcon(false);
+      setNPActive(true);
+      streamController = null; // no streaming — normal ended event works fine
+      toast('▶ ' + clean);
+    } catch(e) {
+      console.warn('Audio play blocked:', e);
+      toast('Tap play to start', false);
+      setPlayIcon(true);
+    }
+  };
+
+  xhr.onerror = () => {
+    audioXHR = null; setLoad(false);
+    toast('Download failed — check connection', true);
+  };
+
+  xhr.onabort = () => { audioXHR = null; setLoad(false); };
+
+  xhr.send();
 }
 
 function stopMedia(clear = true) {
-  // Cancel any in-progress background stream or video overlay download
+  // Cancel any in-progress download
+  if (audioXHR) { audioXHR.abort(); audioXHR = null; }
   if (streamController) { streamController.abort(); streamController = null; }
   if (clear) { streamFileId = null; }
   if (clear) {
@@ -2124,13 +2143,7 @@ function drawVis() {
 //  PLAYER CONTROLS
 // ════════════════════════════════════════
 audioEl.addEventListener('timeupdate', updateProg);
-audioEl.addEventListener('ended', () => {
-  // Only advance if there's no background fetch in progress for this track.
-  // streamController is null once the full file is loaded and upgraded.
-  if (!streamController) nextTrack();
-  // If streamController is active, fetchBackground will handle playback
-  // continuation after the full-file src upgrade.
-});
+audioEl.addEventListener('ended', () => nextTrack());
 audioEl.addEventListener('loadedmetadata', () => { document.getElementById('tDur').textContent = fmtSec(audioEl.duration); });
 videoEl.addEventListener('timeupdate', updateProg);
 videoEl.addEventListener('ended', () => nextTrack());
@@ -2154,11 +2167,16 @@ function seekClick(e) {
 function togglePlay() {
   const ovOpen = document.getElementById('videoOverlay').classList.contains('open');
   if (ovOpen) {
-    const ovVid = document.getElementById('overlayVideoEl');
+    const ovVid  = document.getElementById('overlayVideoEl');
+    const tapBtn = document.getElementById('videoTapPlay');
     if (ovVid.paused) {
-      ovVid.play().catch(() => {}); setPlayIcon(false); setNPActive(true);
+      ovVid.play().then(() => {
+        if (tapBtn) tapBtn.classList.remove('show');
+        setPlayIcon(false); setNPActive(true);
+      }).catch(() => {});
     } else {
-      ovVid.pause(); setPlayIcon(true); setNPActive(false);
+      ovVid.pause();
+      setPlayIcon(true); setNPActive(false);
     }
     return;
   }
@@ -2341,10 +2359,13 @@ function openVideoOverlay(file, driveUrl, token, clean) {
   const pctEl    = document.getElementById('vloadPct');
   const titleEl  = document.getElementById('videoOverlayTitle');
 
-  // Reset state
-  ovVideo.style.display = 'none';
-  ovVideo.src = '';
+  // Reset state fully
+  ovVideo.style.display  = 'none';
+  ovVideo.src            = '';
+  ovVideo.ontimeupdate   = null;
+  ovVideo.oncanplay      = null;
   loadPanel.classList.remove('hidden');
+  document.getElementById('videoTapPlay').classList.remove('show');
   progEl.style.width = '0%';
   pctEl.textContent = '0%';
   nameEl.textContent = clean;
@@ -2380,7 +2401,6 @@ function openVideoOverlay(file, driveUrl, token, clean) {
 
   xhr.onload = () => {
     if (xhr.status === 401) {
-      // Token expired mid-download — refresh and retry
       closeVideoOverlay();
       getValidToken().then(freshTok => openVideoOverlay(file, driveUrl, freshTok, clean));
       return;
@@ -2390,19 +2410,35 @@ function openVideoOverlay(file, driveUrl, token, clean) {
       toast('Video load failed: HTTP ' + xhr.status, true);
       return;
     }
+
     overlayBlobUrl = URL.createObjectURL(xhr.response);
-    ovVideo.src = overlayBlobUrl;
+    ovVideo.src    = overlayBlobUrl;
     ovVideo.volume = +document.getElementById('volR').value;
-    loadPanel.classList.add('hidden');
-    ovVideo.style.display = 'block';
-    // Wire progress bar + time display to overlay video
-    ovVideo.ontimeupdate = updateProg;
+    overlayXHR     = null;
+
+    // Wire progress + duration update
+    ovVideo.ontimeupdate    = updateProg;
     ovVideo.onloadedmetadata = () => {
       document.getElementById('tDur').textContent = fmtSec(ovVideo.duration);
     };
-    ovVideo.play().catch(e => console.warn('Video autoplay blocked:', e));
-    setPlayIcon(false); setNPActive(true);
-    overlayXHR = null;
+
+    ovVideo.oncanplay = () => {
+      // Show video, hide loading panel only when browser can actually play it
+      loadPanel.classList.add('hidden');
+      ovVideo.style.display = 'block';
+
+      ovVideo.play().then(() => {
+        // Autoplay succeeded
+        document.getElementById('videoTapPlay').classList.remove('show');
+        setPlayIcon(false);
+        setNPActive(true);
+      }).catch(() => {
+        // Autoplay blocked — show big tap-to-play button
+        document.getElementById('videoTapPlay').classList.add('show');
+        setPlayIcon(true);
+      });
+      ovVideo.oncanplay = null; // fire once only
+    };
   };
 
   xhr.onerror = () => {
@@ -2415,18 +2451,33 @@ function openVideoOverlay(file, driveUrl, token, clean) {
   xhr.send();
 }
 
+function tapToPlay() {
+  const ovVideo  = document.getElementById('overlayVideoEl');
+  const tapPanel = document.getElementById('videoTapPlay');
+  ovVideo.play().then(() => {
+    tapPanel.classList.remove('show');
+    setPlayIcon(false);
+    setNPActive(true);
+  }).catch(e => console.warn('Play failed:', e));
+}
+
 function closeVideoOverlay() {
-  const overlay = document.getElementById('videoOverlay');
-  const ovVideo = document.getElementById('overlayVideoEl');
+  const overlay  = document.getElementById('videoOverlay');
+  const ovVideo  = document.getElementById('overlayVideoEl');
+  const tapPanel = document.getElementById('videoTapPlay');
 
   overlay.classList.remove('open');
   document.body.style.overflow = '';
+  if (tapPanel) tapPanel.classList.remove('show');
 
   // Stop and clean up
   ovVideo.pause();
-  ovVideo.src = '';
-  if (overlayXHR) { overlayXHR.abort(); overlayXHR = null; }
-  if (overlayBlobUrl) { URL.revokeObjectURL(overlayBlobUrl); overlayBlobUrl = null; }
+  ovVideo.src          = '';
+  ovVideo.style.display = 'none';
+  ovVideo.ontimeupdate = null;
+  ovVideo.oncanplay    = null;
+  if (overlayXHR)    { overlayXHR.abort(); overlayXHR = null; }
+  if (overlayBlobUrl){ URL.revokeObjectURL(overlayBlobUrl); overlayBlobUrl = null; }
 
   // Reset progress bar & time display
   document.getElementById('pf').style.width = '0%';
