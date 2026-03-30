@@ -2314,6 +2314,7 @@ async function playAt(idx) {
       document.getElementById('disc').classList.add('playing');
       setPlayIcon(false); setNPActive(true);
       toast('▶ ' + clean + ' (cached)');
+      updateMediaSession(clean);
       preloadNextTracks();
     } catch(e) {
       console.warn('Audio play blocked:', e);
@@ -2403,6 +2404,7 @@ function downloadAudio(file, driveUrl, token, clean) {
       setNPActive(true);
       streamController = null; // no streaming — normal ended event works fine
       toast('▶ ' + clean);
+      updateMediaSession(clean);
       preloadNextTracks();
     } catch(e) {
       console.warn('Audio play blocked:', e);
@@ -2747,6 +2749,30 @@ function setPlayIcon(showPlay) {
 
 function setNPActive(on) {
   document.getElementById('npBars').classList.toggle('off', !on);
+}
+
+// ════════════════════════════════════════
+//  MEDIA SESSION — lock screen controls
+// ════════════════════════════════════════
+function updateMediaSession(title) {
+  if (!('mediaSession' in navigator)) return;
+
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: title,
+    artist: 'DrivePlayer',
+    album: 'Google Drive'
+  });
+
+  navigator.mediaSession.setActionHandler('play', () => togglePlay());
+  navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+  navigator.mediaSession.setActionHandler('previoustrack', () => prevTrack());
+  navigator.mediaSession.setActionHandler('nexttrack', () => nextTrack());
+  navigator.mediaSession.setActionHandler('seekto', (details) => {
+    const el = audioEl;
+    if (el.duration && details.seekTime != null) {
+      el.currentTime = details.seekTime;
+    }
+  });
 }
 
 // ════════════════════════════════════════
