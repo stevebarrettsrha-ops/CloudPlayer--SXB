@@ -1421,6 +1421,7 @@ let streamController = null;   // AbortController for background chunk fetching
 let streamFileId     = null;   // which file is currently being streamed
 let preloadAbort     = null;   // AbortController for bulk preload
 let isPreloading     = false;  // bulk preload in progress
+let nextPreloadAbort = null;   // AbortController for next-track preload
 let cloudMetaFileId  = null;   // Drive file ID of metadata JSON
 
 const audioEl = document.getElementById('audioEl');
@@ -2035,6 +2036,54 @@ function cancelPreload() {
   isPreloading = false;
 }
 
+/**
+ * Preload the next N tracks in the queue into IndexedDB so playback
+ * transitions are seamless. Called after a track starts playing.
+ */
+async function preloadNextTracks(count = 3) {
+  // Cancel any previous next-track preload
+  if (nextPreloadAbort) { nextPreloadAbort.abort(); }
+  nextPreloadAbort = new AbortController();
+  const signal = nextPreloadAbort.signal;
+
+  const m = filtered.filter(f => f.mimeType.includes('audio/'));
+  if (!m.length) return;
+
+  const curPos = m.indexOf(filtered[curIdx]);
+  const targets = [];
+
+  for (let i = 1; i <= count; i++) {
+    let n = curPos + i;
+    if (n >= m.length) {
+      if (isRepeat) n = n % m.length;
+      else break;
+    }
+    targets.push(m[n]);
+  }
+
+  for (const file of targets) {
+    if (signal.aborted) return;
+    const cached = await getCachedBlob(file.id);
+    if (cached) continue; // already cached
+
+    try {
+      const token = await getValidToken();
+      const resp = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
+        { headers: { Authorization: 'Bearer ' + token }, signal }
+      );
+      if (!resp.ok) continue;
+      const blob = await resp.blob();
+      if (signal.aborted) return;
+      await setCachedBlob(file.id, blob, file.name, file.mimeType);
+      console.log('[Preload] Next track cached:', file.name);
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      console.warn('[Preload] Next track error:', file.name, e);
+    }
+  }
+}
+
 // ════════════════════════════════════════
 //  DRIVE
 // ════════════════════════════════════════
@@ -2219,6 +2268,7 @@ async function playAt(idx) {
       document.getElementById('disc').classList.add('playing');
       setPlayIcon(false); setNPActive(true);
       toast('▶ ' + clean + ' (cached)');
+      preloadNextTracks();
     } catch(e) {
       console.warn('Audio play blocked:', e);
       toast('Tap play to start', false);
@@ -2307,6 +2357,7 @@ function downloadAudio(file, driveUrl, token, clean) {
       setNPActive(true);
       streamController = null; // no streaming — normal ended event works fine
       toast('▶ ' + clean);
+      preloadNextTracks();
     } catch(e) {
       console.warn('Audio play blocked:', e);
       toast('Tap play to start', false);
@@ -2328,6 +2379,7 @@ function stopMedia(clear = true) {
   // Cancel any in-progress download
   if (audioXHR) { audioXHR.abort(); audioXHR = null; }
   if (streamController) { streamController.abort(); streamController = null; }
+  if (clear && nextPreloadAbort) { nextPreloadAbort.abort(); nextPreloadAbort = null; }
   if (clear) { streamFileId = null; }
   if (clear) {
     const overlay = document.getElementById('videoOverlay');
