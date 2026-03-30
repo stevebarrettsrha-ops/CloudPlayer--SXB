@@ -2773,7 +2773,8 @@ function updateMediaSession(title) {
   navigator.mediaSession.setActionHandler('previoustrack', () => prevTrack());
   navigator.mediaSession.setActionHandler('nexttrack', () => nextTrack());
   navigator.mediaSession.setActionHandler('seekto', (details) => {
-    const el = audioEl;
+    const ovOpen = document.getElementById('videoOverlay').classList.contains('open');
+    const el = ovOpen ? document.getElementById('overlayVideoEl') : audioEl;
     if (el.duration && details.seekTime != null) {
       el.currentTime = details.seekTime;
     }
@@ -2934,6 +2935,8 @@ function openVideoOverlay(file, driveUrl, token, clean) {
   // Try cache first
   getCachedBlob(file.id).then(cachedBlob => {
     if (cachedBlob) {
+      // Skip loading panel for cached content
+      loadPanel.classList.add('hidden');
       playVideoBlob(cachedBlob);
       updateMediaSession(clean);
       preloadNextTracks();
@@ -2989,6 +2992,9 @@ function openVideoOverlay(file, driveUrl, token, clean) {
     xhr.onabort = () => {};
 
     xhr.send();
+  }).catch(e => {
+    console.error('[VideoOverlay] Cache check failed:', e);
+    toast('Error loading video', true);
   });
 }
 
