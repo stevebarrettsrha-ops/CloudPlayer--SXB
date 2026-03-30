@@ -1933,11 +1933,23 @@ async function initLibrary() {
     if (!hasData) toast('Error loading Drive', true);
   }
 
-  setLoad(false);
   renderBC();
 
-  // 5. Start background preload of all audio files
-  bulkPreload();
+  // 5. Cache all audio files — wait for completion before auto-playing
+  //    so transitions between tracks are always seamless.
+  const audioCount = allFiles.filter(f => f.mimeType.includes('audio/')).length;
+  const cachedIds = await getAllCachedFileIds();
+  const uncachedCount = allFiles.filter(f => f.mimeType.includes('audio/') && !cachedIds.has(f.id)).length;
+
+  if (uncachedCount > 0) {
+    toast(`Caching ${uncachedCount} of ${audioCount} tracks for seamless playback…`);
+    await bulkPreload();
+  } else {
+    toast('All tracks cached — ready');
+    updatePreloadProgress(audioCount, audioCount);
+  }
+
+  setLoad(false);
 
   // 6. Auto-play first audio track if nothing is playing
   if (curIdx < 0) {
@@ -1967,6 +1979,9 @@ async function fetchAllDriveFiles(folderId) {
  * Downloads one at a time to avoid overwhelming the connection.
  */
 async function bulkPreload() {
+  const CONCURRENCY = 3;  // parallel downloads
+  const MAX_RETRIES = 2;  // retry failed files
+
   const audioFiles = allFiles.filter(f => f.mimeType.includes('audio/'));
   if (!audioFiles.length) return;
 
@@ -1981,40 +1996,71 @@ async function bulkPreload() {
 
   isPreloading = true;
   preloadAbort = new AbortController();
+  const signal = preloadAbort.signal;
   const total = audioFiles.length;
   let done = total - uncached.length;
 
-  toast(`Caching ${uncached.length} track${uncached.length !== 1 ? 's' : ''} in background…`);
+  toast(`Caching ${uncached.length} track${uncached.length !== 1 ? 's' : ''} …`);
   updatePreloadProgress(done, total);
 
-  for (const file of uncached) {
-    if (preloadAbort.signal.aborted) break;
-
-    // Skip the track currently being played/downloaded to avoid duplicate work
-    if (file.id === streamFileId) { continue; }
+  /** Download a single file into IndexedDB cache */
+  async function downloadOne(file, retries) {
+    if (signal.aborted) return false;
+    if (file.id === streamFileId) return false; // skip currently playing
 
     try {
       const token = await getValidToken();
       const resp = await fetch(
         `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
-        {
-          headers: { Authorization: 'Bearer ' + token },
-          signal: preloadAbort.signal
-        }
+        { headers: { Authorization: 'Bearer ' + token }, signal }
       );
-      if (!resp.ok) { console.warn('[Preload] Skip', file.name, resp.status); continue; }
+      if (!resp.ok) {
+        if (resp.status === 403 || resp.status === 429) {
+          // Rate limited — back off and retry
+          if (retries < MAX_RETRIES) {
+            await new Promise(r => setTimeout(r, 2000 * (retries + 1)));
+            return downloadOne(file, retries + 1);
+          }
+        }
+        console.warn('[Preload] Skip', file.name, resp.status);
+        return false;
+      }
       const blob = await resp.blob();
+      if (signal.aborted) return false;
       await setCachedBlob(file.id, blob, file.name, file.mimeType);
-      done++;
-      updatePreloadProgress(done, total);
+      return true;
     } catch (e) {
-      if (e.name === 'AbortError') break;
+      if (e.name === 'AbortError') return false;
+      if (retries < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 1500 * (retries + 1)));
+        return downloadOne(file, retries + 1);
+      }
       console.warn('[Preload] Error:', file.name, e);
+      return false;
     }
   }
 
+  // Process queue with N concurrent workers
+  let qi = 0;
+  async function worker() {
+    while (qi < uncached.length && !signal.aborted) {
+      const file = uncached[qi++];
+      const ok = await downloadOne(file, 0);
+      if (ok) {
+        done++;
+        updatePreloadProgress(done, total);
+      }
+    }
+  }
+
+  const workers = [];
+  for (let i = 0; i < Math.min(CONCURRENCY, uncached.length); i++) {
+    workers.push(worker());
+  }
+  await Promise.all(workers);
+
   isPreloading = false;
-  if (!preloadAbort.signal.aborted) {
+  if (!signal.aborted) {
     toast('All tracks cached locally');
     updatePreloadProgress(total, total);
   }
