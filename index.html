@@ -411,11 +411,11 @@ body{height:100%;height:-webkit-fill-available;background:var(--bg);color:var(--
 }
 .disc-ring{
   position:absolute;inset:-6px;border-radius:50%;
-  background:conic-gradient(var(--cyan),var(--blue),var(--green),var(--amber),var(--cyan));
+  background:conic-gradient(var(--cyan),rgba(0,200,232,0.3),var(--cyan));
   animation:ringRotate 3s linear infinite;
   animation-play-state:paused;
   opacity:0;transition:opacity .6s;
-  filter:blur(1px);
+  filter:blur(2px);
 }
 .disc-ring-mask{position:absolute;inset:2px;border-radius:50%;background:var(--bg);z-index:1}
 .disc-outer:has(.disc.playing) .disc-ring{animation-play-state:running;opacity:1}
@@ -425,9 +425,9 @@ body{height:100%;height:-webkit-fill-available;background:var(--bg);color:var(--
 .disc{
   position:absolute;inset:0;z-index:2;
   border-radius:50%;overflow:hidden;
-  background:var(--panel);
-  border:1px solid rgba(255,255,255,0.06);
-  box-shadow:0 16px 48px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.04);
+  background:#0a0a0a;
+  border:1px solid rgba(255,255,255,0.08);
+  box-shadow:0 16px 48px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.06);
 }
 
 /* The CD: spins when playing */
@@ -447,57 +447,62 @@ body{height:100%;height:-webkit-fill-available;background:var(--bg);color:var(--
 .cd-grooves{
   position:absolute;inset:0;border-radius:50%;
   background:
-    /* Iridescent shimmer base */
-    conic-gradient(
-      from 0deg,
-      rgba(0,200,232,0.55) 0deg,
-      rgba(100,60,255,0.5) 45deg,
-      rgba(255,60,180,0.45) 90deg,
-      rgba(255,160,0,0.5) 135deg,
-      rgba(0,229,155,0.55) 180deg,
-      rgba(0,180,255,0.5) 225deg,
-      rgba(160,0,255,0.45) 270deg,
-      rgba(0,200,232,0.55) 315deg,
-      rgba(100,60,255,0.5) 360deg
-    ),
-    /* Dark base */
-    radial-gradient(circle, #1a1a2e 0%, #0d0d1a 100%);
+    /* Realistic vinyl: dark base with subtle color sheen */
+    radial-gradient(circle at center,
+      #0a0a0a 0%,
+      #111 18%,
+      #0d0d0d 22%,
+      #1a1a1a 35%,
+      #0f0f0f 50%,
+      #181818 65%,
+      #0c0c0c 80%,
+      #141414 100%
+    );
   mix-blend-mode:normal;
 }
-/* Concentric groove rings overlay */
+/* Concentric groove rings overlay — tighter for vinyl realism */
 .cd-grooves::before{
   content:'';position:absolute;inset:0;border-radius:50%;
   background:repeating-radial-gradient(
     circle at center,
     transparent 0px,
-    transparent 3px,
-    rgba(0,0,0,0.18) 3px,
-    rgba(0,0,0,0.18) 4px
+    transparent 1.5px,
+    rgba(255,255,255,0.04) 1.5px,
+    rgba(255,255,255,0.04) 2px,
+    transparent 2px,
+    transparent 3.5px,
+    rgba(0,0,0,0.3) 3.5px,
+    rgba(0,0,0,0.3) 4px
   );
 }
-/* Reflective highlight sweep */
+/* Reflective highlight sweep — realistic vinyl sheen */
 .cd-grooves::after{
   content:'';position:absolute;inset:0;border-radius:50%;
   background:conic-gradient(
     from 200deg,
     transparent 0deg,
-    rgba(255,255,255,0.12) 20deg,
-    rgba(255,255,255,0.22) 30deg,
-    rgba(255,255,255,0.08) 45deg,
-    transparent 60deg
+    rgba(255,255,255,0.04) 15deg,
+    rgba(255,255,255,0.1) 25deg,
+    rgba(200,220,255,0.12) 35deg,
+    rgba(255,255,255,0.06) 50deg,
+    transparent 70deg,
+    transparent 180deg,
+    rgba(255,255,255,0.03) 195deg,
+    rgba(255,255,255,0.07) 210deg,
+    transparent 230deg
   );
 }
 
-/* Centre label area */
+/* Centre label area — vinyl record label */
 .cd-label{
   position:absolute;
   top:50%;left:50%;
   transform:translate(-50%,-50%);
-  width:38%;height:38%;
+  width:36%;height:36%;
   border-radius:50%;
-  background:radial-gradient(circle at 40% 35%, #1c2a3a, #0a0f18);
-  border:1px solid rgba(0,200,232,0.15);
-  box-shadow:0 0 0 2px rgba(0,0,0,0.5), inset 0 0 12px rgba(0,0,0,0.6);
+  background:radial-gradient(circle at 45% 40%, #1a2840, #0c1520 60%, #080e16);
+  border:2px solid rgba(0,200,232,0.2);
+  box-shadow:0 0 0 3px rgba(0,0,0,0.7), 0 0 8px rgba(0,200,232,0.1), inset 0 0 15px rgba(0,0,0,0.5);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:2px;
   z-index:2;
@@ -506,10 +511,11 @@ body{height:100%;height:-webkit-fill-available;background:var(--bg);color:var(--
 .cd-label::before{
   content:'';
   position:absolute;
-  width:10%;height:10%;
+  width:12%;height:12%;
   border-radius:50%;
-  background:radial-gradient(circle, #060a10, #1a2535);
-  box-shadow:0 0 0 1px rgba(0,200,232,0.2);
+  background:radial-gradient(circle, #030508, #0a1018);
+  border:1px solid rgba(0,200,232,0.25);
+  box-shadow:inset 0 0 4px rgba(0,0,0,0.8), 0 0 4px rgba(0,200,232,0.15);
 }
 /* Logo text on the CD */
 .cd-logo{
