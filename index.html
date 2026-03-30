@@ -1935,18 +1935,18 @@ async function initLibrary() {
 
   renderBC();
 
-  // 5. Cache all audio files — wait for completion before auto-playing
+  // 5. Cache all media files — wait for completion before auto-playing
   //    so transitions between tracks are always seamless.
-  const audioCount = allFiles.filter(f => f.mimeType.includes('audio/')).length;
+  const mediaCount = allFiles.filter(f => f.mimeType.includes('audio/') || f.mimeType.includes('video/')).length;
   const cachedIds = await getAllCachedFileIds();
-  const uncachedCount = allFiles.filter(f => f.mimeType.includes('audio/') && !cachedIds.has(f.id)).length;
+  const uncachedCount = allFiles.filter(f => (f.mimeType.includes('audio/') || f.mimeType.includes('video/')) && !cachedIds.has(f.id)).length;
 
   if (uncachedCount > 0) {
-    toast(`Caching ${uncachedCount} of ${audioCount} tracks for seamless playback…`);
+    toast(`Caching ${uncachedCount} of ${mediaCount} files for seamless playback…`);
     await bulkPreload();
   } else {
-    toast('All tracks cached — ready');
-    updatePreloadProgress(audioCount, audioCount);
+    toast('All media cached — ready');
+    updatePreloadProgress(mediaCount, mediaCount);
   }
 
   setLoad(false);
@@ -1982,25 +1982,25 @@ async function bulkPreload() {
   const CONCURRENCY = 3;  // parallel downloads
   const MAX_RETRIES = 2;  // retry failed files
 
-  const audioFiles = allFiles.filter(f => f.mimeType.includes('audio/'));
-  if (!audioFiles.length) return;
+  const mediaFiles = allFiles.filter(f => f.mimeType.includes('audio/') || f.mimeType.includes('video/'));
+  if (!mediaFiles.length) return;
 
   const cachedIds = await getAllCachedFileIds();
-  const uncached = audioFiles.filter(f => !cachedIds.has(f.id));
+  const uncached = mediaFiles.filter(f => !cachedIds.has(f.id));
 
   if (!uncached.length) {
     toast('All tracks cached locally');
-    updatePreloadProgress(audioFiles.length, audioFiles.length);
+    updatePreloadProgress(mediaFiles.length, mediaFiles.length);
     return;
   }
 
   isPreloading = true;
   preloadAbort = new AbortController();
   const signal = preloadAbort.signal;
-  const total = audioFiles.length;
+  const total = mediaFiles.length;
   let done = total - uncached.length;
 
-  toast(`Caching ${uncached.length} track${uncached.length !== 1 ? 's' : ''} …`);
+  toast(`Caching ${uncached.length} file${uncached.length !== 1 ? 's' : ''} …`);
   updatePreloadProgress(done, total);
 
   /** Download a single file into IndexedDB cache */
@@ -2092,7 +2092,7 @@ async function preloadNextTracks(count = 3) {
   nextPreloadAbort = new AbortController();
   const signal = nextPreloadAbort.signal;
 
-  const m = filtered.filter(f => f.mimeType.includes('audio/'));
+  const m = filtered.filter(f => !f.mimeType.includes('folder'));
   if (!m.length) return;
 
   const curPos = m.indexOf(filtered[curIdx]);
@@ -2291,6 +2291,11 @@ async function playAt(idx) {
   // ── AUDIO — try cache first, then download with progress ──
   stopMedia(false);
   setLoad(true);
+
+  // Reset progress bar for new track
+  document.getElementById('pf').style.width = '0%';
+  document.getElementById('tCur').textContent = fmtSec(0);
+  document.getElementById('tDur').textContent = fmtSec(0);
 
   const cachedBlob = await getCachedBlob(file.id);
   if (cachedBlob) {
@@ -2899,76 +2904,92 @@ function openVideoOverlay(file, driveUrl, token, clean) {
   if (overlayXHR) { overlayXHR.abort(); overlayXHR = null; }
   if (overlayBlobUrl) { URL.revokeObjectURL(overlayBlobUrl); overlayBlobUrl = null; }
 
-  // Use XHR so we get real download progress
-  const xhr = new XMLHttpRequest();
-  overlayXHR = xhr;
-  xhr.open('GET', driveUrl, true);
-  xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-  xhr.responseType = 'blob';
-
-  xhr.onprogress = (e) => {
-    if (e.lengthComputable && e.total > 0) {
-      const pct = Math.round((e.loaded / e.total) * 100);
-      progEl.style.width = pct + '%';
-      pctEl.textContent = pct + '%';
-    } else {
-      // Unknown size — show animated indeterminate bar
-      progEl.style.width = '100%';
-      progEl.style.animation = 'barShimmer 1s ease-in-out infinite';
-      pctEl.textContent = 'Loading…';
-    }
-  };
-
-  xhr.onload = () => {
-    if (xhr.status === 401) {
-      closeVideoOverlay();
-      getValidToken().then(freshTok => openVideoOverlay(file, driveUrl, freshTok, clean));
-      return;
-    }
-    if (xhr.status < 200 || xhr.status >= 300) {
-      closeVideoOverlay();
-      toast('Video load failed: HTTP ' + xhr.status, true);
-      return;
-    }
-
-    overlayBlobUrl = URL.createObjectURL(xhr.response);
+  /** Play the video blob — shared by cache hit and download paths */
+  function playVideoBlob(blob) {
+    overlayBlobUrl = URL.createObjectURL(blob);
     ovVideo.src    = overlayBlobUrl;
     ovVideo.volume = +document.getElementById('volR').value;
-    overlayXHR     = null;
 
-    // Wire progress + duration update
     ovVideo.ontimeupdate    = updateProg;
     ovVideo.onloadedmetadata = () => {
       document.getElementById('tDur').textContent = fmtSec(ovVideo.duration);
     };
 
     ovVideo.oncanplay = () => {
-      // Show video, hide loading panel only when browser can actually play it
       loadPanel.classList.add('hidden');
       ovVideo.style.display = 'block';
 
       ovVideo.play().then(() => {
-        // Autoplay succeeded
         document.getElementById('videoTapPlay').classList.remove('show');
         setPlayIcon(false);
         setNPActive(true);
       }).catch(() => {
-        // Autoplay blocked — show big tap-to-play button
         document.getElementById('videoTapPlay').classList.add('show');
         setPlayIcon(true);
       });
-      ovVideo.oncanplay = null; // fire once only
+      ovVideo.oncanplay = null;
     };
-  };
+  }
 
-  xhr.onerror = () => {
-    closeVideoOverlay();
-    toast('Video download failed — check connection', true);
-  };
+  // Try cache first
+  getCachedBlob(file.id).then(cachedBlob => {
+    if (cachedBlob) {
+      playVideoBlob(cachedBlob);
+      updateMediaSession(clean);
+      preloadNextTracks();
+      return;
+    }
 
-  xhr.onabort = () => {}; // silent — user closed overlay
+    // Not cached — download from Drive with progress
+    const xhr = new XMLHttpRequest();
+    overlayXHR = xhr;
+    xhr.open('GET', driveUrl, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.responseType = 'blob';
 
-  xhr.send();
+    xhr.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        progEl.style.width = pct + '%';
+        pctEl.textContent = pct + '%';
+      } else {
+        progEl.style.width = '100%';
+        progEl.style.animation = 'barShimmer 1s ease-in-out infinite';
+        pctEl.textContent = 'Loading…';
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status === 401) {
+        closeVideoOverlay();
+        getValidToken().then(freshTok => openVideoOverlay(file, driveUrl, freshTok, clean));
+        return;
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        closeVideoOverlay();
+        toast('Video load failed: HTTP ' + xhr.status, true);
+        return;
+      }
+
+      overlayXHR = null;
+
+      // Save to cache for next time
+      setCachedBlob(file.id, xhr.response, file.name, file.mimeType);
+
+      playVideoBlob(xhr.response);
+      updateMediaSession(clean);
+      preloadNextTracks();
+    };
+
+    xhr.onerror = () => {
+      closeVideoOverlay();
+      toast('Video download failed — check connection', true);
+    };
+
+    xhr.onabort = () => {};
+
+    xhr.send();
+  });
 }
 
 function tapToPlay() {
