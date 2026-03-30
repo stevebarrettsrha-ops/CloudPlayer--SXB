@@ -2292,6 +2292,11 @@ async function playAt(idx) {
   stopMedia(false);
   setLoad(true);
 
+  // Reset progress bar for new track
+  document.getElementById('pf').style.width = '0%';
+  document.getElementById('tCur').textContent = fmtSec(0);
+  document.getElementById('tDur').textContent = fmtSec(0);
+
   const cachedBlob = await getCachedBlob(file.id);
   if (cachedBlob) {
     // Instant playback from local cache
