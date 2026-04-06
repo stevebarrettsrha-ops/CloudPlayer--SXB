@@ -1136,23 +1136,58 @@ input[type=range]::-webkit-slider-thumb{
     <div class="logo">Drive<em>Player</em></div>
     <div class="tagline" style="margin-bottom:28px">Stream your Google Drive music &amp; videos</div>
 
-    <div class="api-status" style="margin-bottom:0">
-      <div class="api-pill" id="pillGapi"><span class="api-dot"></span><span id="gapiTxt">Connecting&#8230;</span></div>
-      <div class="api-pill" id="pillGis"><span class="api-dot"></span><span id="gisTxt">Auth loading&#8230;</span></div>
+    <!-- ── Normal browser sign-in (hidden in WebView) ── -->
+    <div id="normalSignin">
+      <div class="api-status" style="margin-bottom:0">
+        <div class="api-pill" id="pillGapi"><span class="api-dot"></span><span id="gapiTxt">Connecting&#8230;</span></div>
+        <div class="api-pill" id="pillGis"><span class="api-dot"></span><span id="gisTxt">Auth loading&#8230;</span></div>
+      </div>
+
+      <div class="signin-sect">
+        <button class="g-btn" id="gBtn" onclick="startSignIn()" disabled>
+          <svg viewBox="0 0 48 48">
+            <path fill="#4285F4" d="M44.5 20H24v8h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6-6C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/>
+            <path fill="#34A853" d="M2 24c0-3.3.7-6.4 2-9.2l-6-4.7A21.8 21.8 0 000 24c0 3.9.9 7.5 2.5 10.8l6.2-4.8A13 13 0 012 24z"/>
+            <path fill="#FBBC05" d="M24 46c5.7 0 10.5-1.9 14-5.1l-6.5-5C29.7 37.6 27 38.5 24 38.5c-5.2 0-9.6-3.5-11.2-8.3l-6.4 4.9C9.7 41.8 16.3 46 24 46z"/>
+            <path fill="#EA4335" d="M44.5 20H24v8h11.8c-.8 2.2-2.2 4.1-4 5.4l6.5 5c3.8-3.5 6.2-8.7 6.2-14.4 0-1.3-.2-2.7-.5-4z"/>
+          </svg>
+          <span id="gBtnLbl">Sign in with Google</span>
+        </button>
+        <div class="btn-hint" id="btnHint">Initialising&#8230;</div>
+        <div class="err-msg" id="errMsg"></div>
+      </div>
     </div>
 
-    <div class="signin-sect">
-      <button class="g-btn" id="gBtn" onclick="startSignIn()" disabled>
-        <svg viewBox="0 0 48 48">
-          <path fill="#4285F4" d="M44.5 20H24v8h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6-6C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/>
-          <path fill="#34A853" d="M2 24c0-3.3.7-6.4 2-9.2l-6-4.7A21.8 21.8 0 000 24c0 3.9.9 7.5 2.5 10.8l6.2-4.8A13 13 0 012 24z"/>
-          <path fill="#FBBC05" d="M24 46c5.7 0 10.5-1.9 14-5.1l-6.5-5C29.7 37.6 27 38.5 24 38.5c-5.2 0-9.6-3.5-11.2-8.3l-6.4 4.9C9.7 41.8 16.3 46 24 46z"/>
-          <path fill="#EA4335" d="M44.5 20H24v8h11.8c-.8 2.2-2.2 4.1-4 5.4l6.5 5c3.8-3.5 6.2-8.7 6.2-14.4 0-1.3-.2-2.7-.5-4z"/>
-        </svg>
-        <span id="gBtnLbl">Sign in with Google</span>
+    <!-- ── WebView blocker (shown only in WebView) ── -->
+    <div id="webviewBlock" style="display:none">
+      <div style="padding:16px;border-radius:14px;background:rgba(240,184,64,0.07);border:1px solid rgba(240,184,64,0.2);margin-bottom:16px">
+        <p style="font-size:12px;color:var(--amber);font-weight:500;margin-bottom:8px">App Mode Detected</p>
+        <p style="font-size:11px;color:var(--text);line-height:1.6">
+          Google blocks sign-in inside app WebViews for security.<br>
+          Open DrivePlayer in <b>Chrome</b> to use it:
+        </p>
+      </div>
+
+      <input id="hostedUrlDisplay" type="text" readonly
+        style="width:100%;padding:10px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--border);color:var(--cyan);font-family:var(--font-m);font-size:11px;text-align:center;outline:none;margin-bottom:10px;cursor:text"
+        value="" />
+
+      <button onclick="copyHostedUrl()" id="copyUrlBtn"
+        style="width:100%;padding:12px;border-radius:10px;background:var(--cyan);color:#060a10;border:none;font-family:var(--font-m);font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.03em;margin-bottom:8px">
+        Copy Link
       </button>
-      <div class="btn-hint" id="btnHint">Initialising&#8230;</div>
-      <div class="err-msg" id="errMsg"></div>
+
+      <button onclick="tryOpenChrome()"
+        style="width:100%;padding:11px;border-radius:10px;background:transparent;color:var(--cyan);border:1px solid rgba(0,200,232,0.3);font-family:var(--font-m);font-size:11px;cursor:pointer;letter-spacing:.03em">
+        Try Open in Chrome
+      </button>
+
+      <p style="font-size:10px;color:var(--sub);margin-top:12px;line-height:1.6">
+        1. Tap <b>Copy Link</b> above<br>
+        2. Open <b>Chrome</b> browser<br>
+        3. Paste the link in Chrome's address bar<br>
+        4. Sign in with Google there
+      </p>
     </div>
 
     <p style="font-size:10px;color:var(--muted);margin-top:18px;line-height:1.7;letter-spacing:.03em">
@@ -1450,192 +1485,141 @@ const EQ_PRESETS = {
 };
 
 // ════════════════════════════════════════
-//  GOOGLE API BOOTSTRAP
+//  WEBVIEW DETECTION & LAUNCHER
 // ════════════════════════════════════════
-let fallbackMode = false; // true = GIS/gapi unavailable, use manual OAuth + REST
+let fallbackMode = false;
 
-function inject(src, onload, onerror, retries) {
-  retries = retries || 0;
-  const s = document.createElement('script');
-  s.src = src + (retries ? ('?' + Date.now()) : '');
-  s.onload = onload;
-  s.onerror = function() {
-    if (retries < 2) {
-      console.warn('Script load attempt ' + (retries + 1) + ' failed: ' + src);
-      setTimeout(function() { inject(src, onload, onerror, retries + 1); }, 2000 * (retries + 1));
-    } else {
-      onerror();
+const isWebView = (function() {
+  const ua = navigator.userAgent || '';
+  if (/; wv\)/.test(ua)) return true;
+  if (/Android/.test(ua) && /Version\/[\d.]+/.test(ua) && !/Chrome\/[\d.]+/.test(ua)) return true;
+  if (/Android/.test(ua) && /Chrome\//.test(ua) && /; wv/.test(ua)) return true;
+  if (/iPhone|iPad/.test(ua) && !/Safari\//.test(ua)) return true;
+  return false;
+})();
+
+// In WebView: hide sign-in, show "Open in Chrome" launcher
+if (isWebView) {
+  document.addEventListener('DOMContentLoaded', () => {
+    const ns = document.getElementById('normalSignin');
+    if (ns) ns.style.display = 'none';
+    const wb = document.getElementById('webviewBlock');
+    if (wb) {
+      wb.style.display = 'block';
+      const url = window.location.origin + window.location.pathname;
+      document.getElementById('hostedUrlDisplay').value = url || window.location.href;
     }
-  };
+  });
+}
+
+function copyHostedUrl() {
+  const url = document.getElementById('hostedUrlDisplay').value;
+  const btn = document.getElementById('copyUrlBtn');
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      btn.textContent = 'Copied!'; btn.style.background = 'var(--green)';
+      setTimeout(() => { btn.textContent = 'Copy Link'; btn.style.background = 'var(--cyan)'; }, 2000);
+    }).catch(() => fallbackCopy(url, btn));
+  } else {
+    fallbackCopy(url, btn);
+  }
+}
+function fallbackCopy(text, btn) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy');
+    btn.textContent = 'Copied!'; btn.style.background = 'var(--green)';
+    setTimeout(() => { btn.textContent = 'Copy Link'; btn.style.background = 'var(--cyan)'; }, 2000);
+  } catch(e) { document.getElementById('hostedUrlDisplay').select(); }
+  document.body.removeChild(ta);
+}
+function tryOpenChrome() {
+  const url = document.getElementById('hostedUrlDisplay').value;
+  const intentUrl = 'intent://' + url.replace(/^https?:\/\//, '') +
+    '#Intent;scheme=https;package=com.android.chrome;end';
+  window.location = intentUrl;
+  setTimeout(() => { window.open(url, '_blank'); }, 800);
+}
+
+// ════════════════════════════════════════
+//  GOOGLE API BOOTSTRAP (browser only)
+// ════════════════════════════════════════
+function inject(src, onload, onerror) {
+  const s = document.createElement('script');
+  s.src = src; s.onload = onload; s.onerror = onerror;
   document.head.appendChild(s);
 }
 
 function activateFallbackMode() {
   if (fallbackMode) return;
   fallbackMode = true;
-  console.log('[DrivePlayer] Fallback mode — using manual OAuth + REST API');
-  // Mark both pills as OK since we bypass both libraries
   pillOk('pillGapi', 'gapiTxt', 'Drive REST ✓');
   pillOk('pillGis', 'gisTxt', 'Manual Auth ✓');
   gapiOk = true; gisOk = true;
   checkReady();
 }
 
-inject(
-  'https://apis.google.com/js/api.js',
-  () => {
-    gapi.load('client', async () => {
-      try {
-        await gapi.client.init({ discoveryDocs: [DISC] });
-        gapiOk = true;
-        pillOk('pillGapi', 'gapiTxt', 'Drive API ✓');
-        checkReady();
-      } catch(e) { pillFail('pillGapi', 'gapiTxt', 'Drive API error'); console.error(e); }
-    });
-  },
-  () => {
-    pillFail('pillGapi', 'gapiTxt', 'Drive API — fallback');
-    activateFallbackMode();
-  }
-);
+if (!isWebView) {
+  inject(
+    'https://apis.google.com/js/api.js',
+    () => {
+      gapi.load('client', async () => {
+        try {
+          await gapi.client.init({ discoveryDocs: [DISC] });
+          gapiOk = true;
+          pillOk('pillGapi', 'gapiTxt', 'Drive API ✓');
+          checkReady();
+        } catch(e) { pillFail('pillGapi', 'gapiTxt', 'Drive API error'); console.error(e); }
+      });
+    },
+    () => { pillFail('pillGapi', 'gapiTxt', 'Drive API — fallback'); activateFallbackMode(); }
+  );
 
-function waitForGis(failCb) {
-  let n = 0;
-  const iv = setInterval(() => {
-    if (window.google?.accounts?.oauth2) {
-      clearInterval(iv); gisOk = true;
-      pillOk('pillGis', 'gisTxt', 'Auth Services ✓');
-      checkReady();
-    } else if (++n > 60) { clearInterval(iv); failCb(); }
-  }, 200);
+  inject(
+    'https://accounts.google.com/gsi/client',
+    () => {
+      let n = 0;
+      const iv = setInterval(() => {
+        if (window.google?.accounts?.oauth2) {
+          clearInterval(iv); gisOk = true;
+          pillOk('pillGis', 'gisTxt', 'Auth Services ✓');
+          checkReady();
+        } else if (++n > 60) { clearInterval(iv); activateFallbackMode(); }
+      }, 200);
+    },
+    () => { pillFail('pillGis', 'gisTxt', 'Auth — fallback'); activateFallbackMode(); }
+  );
 }
 
-inject(
-  'https://accounts.google.com/gsi/client',
-  () => waitForGis(() => {
-    pillFail('pillGis', 'gisTxt', 'Auth timeout');
-    activateFallbackMode();
-  }),
-  () => {
-    pillFail('pillGis', 'gisTxt', 'Auth — fallback');
-    activateFallbackMode();
-  }
-);
-
 // ════════════════════════════════════════
-//  MANUAL OAUTH REDIRECT FLOW (fallback)
+//  MANUAL OAUTH REDIRECT (browser fallback)
 // ════════════════════════════════════════
-// Google returns 403 disallowed_useragent in WebViews.
-// Solution: open the OAuth URL in the device's real browser (Chrome),
-// which redirects back to the hosted page with the token. If the user
-// is already in a real browser, the redirect works directly.
+// When GIS fails in a real browser, use implicit grant redirect.
 
-function getRedirectUri() {
-  return window.location.origin + window.location.pathname;
-}
-
-function buildOAuthUrl() {
+function manualSignIn() {
+  if (!CLIENT_ID) { setErr('Save your Client ID first'); return; }
+  const redirectUri = window.location.origin + window.location.pathname;
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
-    redirect_uri: getRedirectUri(),
+    redirect_uri: redirectUri,
     response_type: 'token',
     scope: SCOPES,
     include_granted_scopes: 'true',
     prompt: 'consent'
   });
-  return 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
-}
-
-function manualSignIn() {
-  if (!CLIENT_ID) { setErr('Save your Client ID first'); return; }
-  const oauthUrl = buildOAuthUrl();
-
-  // Detect if we're in an Android WebView
-  const ua = navigator.userAgent || '';
-  const inWebView = /; wv\)/.test(ua) ||
-    (/Android/.test(ua) && /Version\/[\d.]+/.test(ua) && !/Chrome\/[\d.]+/.test(ua)) ||
-    (/Android/.test(ua) && /Chrome\//.test(ua) && /; wv/.test(ua));
-
-  if (inWebView) {
-    // Must open in external browser — Google blocks OAuth in WebViews
-    setErr('');
-    btnLoading('Opening browser for sign-in…');
-    showTokenInput();
-    // Try multiple methods to escape the WebView
-    // 1. Android Intent URI (most reliable for opening in Chrome)
-    const intentUrl = 'intent://' + oauthUrl.replace('https://', '') +
-      '#Intent;scheme=https;package=com.android.chrome;action=android.intent.action.VIEW;end';
-    const opened = window.open(oauthUrl, '_system');
-    if (!opened) {
-      try { window.location = intentUrl; } catch(e) {
-        window.open(oauthUrl, '_blank');
-      }
-    }
-  } else {
-    // Normal browser — direct redirect works fine
-    setErr('');
-    btnLoading('Redirecting to Google…');
-    window.location.href = oauthUrl;
-  }
-}
-
-// ── Token paste UI (for WebView → external browser flow) ──
-// After signing in in Chrome, Google redirects to the hosted page in Chrome.
-// The user copies the full URL from Chrome's address bar and pastes it here.
-function showTokenInput() {
-  let box = document.getElementById('tokenInputBox');
-  if (box) { box.style.display = 'block'; return; }
-  box = document.createElement('div');
-  box.id = 'tokenInputBox';
-  box.style.cssText = 'margin-top:14px;padding:14px;border-radius:12px;background:rgba(0,200,232,0.06);border:1px solid rgba(0,200,232,0.2);text-align:left';
-  box.innerHTML = `
-    <p style="font-size:11px;color:var(--cyan);margin-bottom:8px;line-height:1.5;text-align:center">
-      <b>After signing in with Google in Chrome:</b><br>
-      Copy the <b>full URL</b> from Chrome's address bar and paste it here.
-    </p>
-    <input id="manualTokenInp" type="text" placeholder="Paste the full redirect URL here" style="width:100%;padding:10px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--border);color:var(--text);font-family:var(--font-m);font-size:11px;outline:none" />
-    <button onclick="submitManualToken()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;background:var(--cyan);color:#060a10;border:none;font-family:var(--font-m);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.03em">Connect</button>
-    <p style="font-size:9px;color:var(--sub);margin-top:6px;text-align:center;line-height:1.5">
-      The URL will look like: yoursite.com/#access_token=ya29...
-    </p>
-  `;
-  document.querySelector('.signin-sect').appendChild(box);
-}
-
-function submitManualToken() {
-  const raw = (document.getElementById('manualTokenInp')?.value || '').trim();
-  if (!raw) { setErr('Paste the redirect URL from Chrome'); return; }
-  let token = '', expiresIn = 3600;
-  // Try to extract access_token from a full redirect URL
-  if (raw.includes('access_token')) {
-    try {
-      const hashPart = raw.includes('#') ? raw.split('#')[1] : raw;
-      const p = new URLSearchParams(hashPart);
-      token = p.get('access_token') || '';
-      const exp = parseInt(p.get('expires_in'), 10);
-      if (exp > 0) expiresIn = exp;
-    } catch(e) {}
-  }
-  // If no token found in URL params, treat the whole input as a raw token
-  if (!token) token = raw.replace(/^[\s"']+|[\s"']+$/g, '');
-  if (token.length < 20) { setErr('Could not find an access token in that URL. Make sure you copy the full address bar.'); return; }
-  setErr('');
-  const box = document.getElementById('tokenInputBox');
-  if (box) box.style.display = 'none';
-  handleManualToken(token, expiresIn);
+  setErr(''); btnLoading('Redirecting to Google…');
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
 }
 
 function checkRedirectToken() {
-  // After Google redirects back, the token is in the URL hash fragment
   const hash = window.location.hash.substring(1);
   if (!hash || !hash.includes('access_token')) return false;
   const params = new URLSearchParams(hash);
   const token = params.get('access_token');
   const expiresIn = parseInt(params.get('expires_in') || '3600', 10);
   if (!token) return false;
-  // Clear the hash so the token isn't visible / bookmarkable
   history.replaceState(null, '', window.location.pathname + window.location.search);
-  // Process the token
   handleManualToken(token, expiresIn);
   return true;
 }
