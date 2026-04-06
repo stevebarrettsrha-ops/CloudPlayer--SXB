@@ -1160,34 +1160,11 @@ input[type=range]::-webkit-slider-thumb{
 
     <!-- ── WebView blocker (shown only in WebView) ── -->
     <div id="webviewBlock" style="display:none">
-      <div style="padding:16px;border-radius:14px;background:rgba(240,184,64,0.07);border:1px solid rgba(240,184,64,0.2);margin-bottom:16px">
-        <p style="font-size:12px;color:var(--amber);font-weight:500;margin-bottom:8px">App Mode Detected</p>
-        <p style="font-size:11px;color:var(--text);line-height:1.6">
-          Google blocks sign-in inside app WebViews for security.<br>
-          Open DrivePlayer in <b>Chrome</b> to use it:
-        </p>
-      </div>
-
-      <input id="hostedUrlDisplay" type="text" readonly
-        style="width:100%;padding:10px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--border);color:var(--cyan);font-family:var(--font-m);font-size:11px;text-align:center;outline:none;margin-bottom:10px;cursor:text"
-        value="" />
-
-      <button onclick="copyHostedUrl()" id="copyUrlBtn"
-        style="width:100%;padding:12px;border-radius:10px;background:var(--cyan);color:#060a10;border:none;font-family:var(--font-m);font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.03em;margin-bottom:8px">
-        Copy Link
-      </button>
-
       <button onclick="tryOpenChrome()"
-        style="width:100%;padding:11px;border-radius:10px;background:transparent;color:var(--cyan);border:1px solid rgba(0,200,232,0.3);font-family:var(--font-m);font-size:11px;cursor:pointer;letter-spacing:.03em">
-        Try Open in Chrome
+        style="width:100%;padding:14px;border-radius:12px;background:var(--cyan);color:#060a10;border:none;font-family:var(--font-m);font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.03em">
+        Open in Chrome
       </button>
-
-      <p style="font-size:10px;color:var(--sub);margin-top:12px;line-height:1.6">
-        1. Tap <b>Copy Link</b> above<br>
-        2. Open <b>Chrome</b> browser<br>
-        3. Paste the link in Chrome's address bar<br>
-        4. Sign in with Google there
-      </p>
+      <input id="hostedUrlDisplay" type="hidden" value="" />
     </div>
 
     <p style="font-size:10px;color:var(--muted);margin-top:18px;line-height:1.7;letter-spacing:.03em">
