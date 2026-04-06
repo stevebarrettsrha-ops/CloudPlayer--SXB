@@ -1552,20 +1552,24 @@ function manualSignIn() {
 
   // Detect if we're in an Android WebView
   const ua = navigator.userAgent || '';
-  const inWebView = /; wv\)/.test(ua) || (/Android/.test(ua) && /Version\/[\d.]+/.test(ua) && !/Chrome\/[\d.]+/.test(ua));
+  const inWebView = /; wv\)/.test(ua) ||
+    (/Android/.test(ua) && /Version\/[\d.]+/.test(ua) && !/Chrome\/[\d.]+/.test(ua)) ||
+    (/Android/.test(ua) && /Chrome\//.test(ua) && /; wv/.test(ua));
 
   if (inWebView) {
-    // Open in external browser via Android Intent — this bypasses the WebView
-    // and uses Chrome/default browser where Google allows OAuth
-    const intentUrl = 'intent://' + oauthUrl.replace(/^https?:\/\//, '') +
-      '#Intent;scheme=https;action=android.intent.action.VIEW;end';
+    // Must open in external browser — Google blocks OAuth in WebViews
     setErr('');
     btnLoading('Opening browser for sign-in…');
-    // Show the paste-token UI for when user comes back
     showTokenInput();
-    try { window.location = intentUrl; } catch(e) {
-      // Intent failed — try window.open as fallback
-      window.open(oauthUrl, '_system') || window.open(oauthUrl, '_blank');
+    // Try multiple methods to escape the WebView
+    // 1. Android Intent URI (most reliable for opening in Chrome)
+    const intentUrl = 'intent://' + oauthUrl.replace('https://', '') +
+      '#Intent;scheme=https;package=com.android.chrome;action=android.intent.action.VIEW;end';
+    const opened = window.open(oauthUrl, '_system');
+    if (!opened) {
+      try { window.location = intentUrl; } catch(e) {
+        window.open(oauthUrl, '_blank');
+      }
     }
   } else {
     // Normal browser — direct redirect works fine
@@ -1575,9 +1579,9 @@ function manualSignIn() {
   }
 }
 
-// ── Token paste UI (for WebView flow) ──
-// After signing in via external browser, user copies the token or
-// the redirect happens back to this page. This handles the manual paste case.
+// ── Token paste UI (for WebView → external browser flow) ──
+// After signing in in Chrome, Google redirects to the hosted page in Chrome.
+// The user copies the full URL from Chrome's address bar and pastes it here.
 function showTokenInput() {
   let box = document.getElementById('tokenInputBox');
   if (box) { box.style.display = 'block'; return; }
@@ -1585,32 +1589,40 @@ function showTokenInput() {
   box.id = 'tokenInputBox';
   box.style.cssText = 'margin-top:14px;padding:14px;border-radius:12px;background:rgba(0,200,232,0.06);border:1px solid rgba(0,200,232,0.2);text-align:left';
   box.innerHTML = `
-    <p style="font-size:11px;color:var(--cyan);margin-bottom:8px;line-height:1.5;text-align:center">After signing in, you'll be redirected back here.<br>If not, paste the URL or token from your browser:</p>
-    <input id="manualTokenInp" type="text" placeholder="Paste URL or access_token here" style="width:100%;padding:10px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--border);color:var(--text);font-family:var(--font-m);font-size:11px;outline:none" />
-    <button onclick="submitManualToken()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;background:var(--cyan);color:#060a10;border:none;font-family:var(--font-m);font-size:11px;font-weight:600;cursor:pointer">Submit Token</button>
+    <p style="font-size:11px;color:var(--cyan);margin-bottom:8px;line-height:1.5;text-align:center">
+      <b>After signing in with Google in Chrome:</b><br>
+      Copy the <b>full URL</b> from Chrome's address bar and paste it here.
+    </p>
+    <input id="manualTokenInp" type="text" placeholder="Paste the full redirect URL here" style="width:100%;padding:10px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--border);color:var(--text);font-family:var(--font-m);font-size:11px;outline:none" />
+    <button onclick="submitManualToken()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;background:var(--cyan);color:#060a10;border:none;font-family:var(--font-m);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.03em">Connect</button>
+    <p style="font-size:9px;color:var(--sub);margin-top:6px;text-align:center;line-height:1.5">
+      The URL will look like: yoursite.com/#access_token=ya29...
+    </p>
   `;
   document.querySelector('.signin-sect').appendChild(box);
 }
 
 function submitManualToken() {
   const raw = (document.getElementById('manualTokenInp')?.value || '').trim();
-  if (!raw) { setErr('Paste the URL or token'); return; }
-  let token = '';
+  if (!raw) { setErr('Paste the redirect URL from Chrome'); return; }
+  let token = '', expiresIn = 3600;
   // Try to extract access_token from a full redirect URL
-  if (raw.includes('access_token=')) {
+  if (raw.includes('access_token')) {
     try {
       const hashPart = raw.includes('#') ? raw.split('#')[1] : raw;
       const p = new URLSearchParams(hashPart);
       token = p.get('access_token') || '';
+      const exp = parseInt(p.get('expires_in'), 10);
+      if (exp > 0) expiresIn = exp;
     } catch(e) {}
   }
-  // If not found, treat the whole input as a raw token
-  if (!token) token = raw;
-  if (token.length < 20) { setErr('That doesn\'t look like a valid token'); return; }
+  // If no token found in URL params, treat the whole input as a raw token
+  if (!token) token = raw.replace(/^[\s"']+|[\s"']+$/g, '');
+  if (token.length < 20) { setErr('Could not find an access token in that URL. Make sure you copy the full address bar.'); return; }
   setErr('');
   const box = document.getElementById('tokenInputBox');
   if (box) box.style.display = 'none';
-  handleManualToken(token, 3600);
+  handleManualToken(token, expiresIn);
 }
 
 function checkRedirectToken() {
@@ -1632,9 +1644,7 @@ async function handleManualToken(token, expiresIn) {
   accessToken = token;
   const lifetime = expiresIn * 1000;
   tokenExpiry = Date.now() + lifetime;
-  if (!fallbackMode && window.gapi?.client) {
-    gapi.client.setToken({ access_token: accessToken });
-  }
+  if (window.gapi?.client) gapi.client.setToken({ access_token: accessToken });
   scheduleTokenRefresh(lifetime);
   btnLoading('Loading profile…');
   let user = {};
@@ -1661,11 +1671,10 @@ async function handleManualToken(token, expiresIn) {
 // When gapi is unavailable, these call the Drive v3 REST API directly via fetch.
 
 async function driveFilesList(params) {
-  // If gapi is available, use it
-  if (!fallbackMode && window.gapi?.client?.drive) {
+  // Use gapi if it's fully loaded and ready, otherwise direct REST
+  if (window.gapi?.client?.drive) {
     return gapi.client.drive.files.list(params);
   }
-  // Otherwise: direct REST call
   const token = await getValidToken();
   const url = new URL('https://www.googleapis.com/drive/v3/files');
   if (params.q) url.searchParams.set('q', params.q);
@@ -1675,6 +1684,7 @@ async function driveFilesList(params) {
   if (params.pageToken) url.searchParams.set('pageToken', params.pageToken);
   if (params.spaces) url.searchParams.set('spaces', params.spaces);
   const r = await fetch(url.toString(), { headers: { Authorization: 'Bearer ' + token } });
+  if (!r.ok) throw new Error('Drive API ' + r.status + ': ' + (await r.text()));
   const json = await r.json();
   return { result: json };
 }
