@@ -1155,11 +1155,6 @@ input[type=range]::-webkit-slider-thumb{
       <div class="err-msg" id="errMsg"></div>
     </div>
 
-    <div id="webviewNotice" style="display:none;margin-top:14px;padding:14px;border-radius:12px;background:rgba(240,184,64,0.08);border:1px solid rgba(240,184,64,0.25)">
-      <p style="font-size:11px;color:var(--amber);margin-bottom:10px;line-height:1.6">Google sign-in is blocked in app WebViews. Open this page in Chrome or your default browser instead:</p>
-      <button onclick="openInBrowser()" style="width:100%;padding:11px;border-radius:10px;background:var(--amber);color:#000;border:none;font-family:var(--font-m);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.04em">Open in Browser</button>
-    </div>
-
     <p style="font-size:10px;color:var(--muted);margin-top:18px;line-height:1.7;letter-spacing:.03em">
       Read-only access to your Drive &middot; No data stored<br>Playback happens entirely in your browser
     </p>
@@ -1457,34 +1452,7 @@ const EQ_PRESETS = {
 // ════════════════════════════════════════
 //  GOOGLE API BOOTSTRAP
 // ════════════════════════════════════════
-// ── WebView detection ──
-const isWebView = (function() {
-  const ua = navigator.userAgent || '';
-  // Android WebView: contains 'wv' flag or AppsGeyser/specific WebView markers
-  if (/; wv\)/.test(ua)) return true;
-  // Android WebView without 'wv' flag but is not Chrome-proper
-  if (/Android/.test(ua) && /Version\/[\d.]+/.test(ua) && !/Chrome\/[\d.]+/.test(ua)) return true;
-  // AppsGeyser / other wrapper apps that include Chrome but also 'wv'
-  if (/Android/.test(ua) && /Chrome\//.test(ua) && /; wv/.test(ua)) return true;
-  // iOS WebView (WKWebView or UIWebView)
-  if (/iPhone|iPad/.test(ua) && !/Safari\//.test(ua)) return true;
-  return false;
-})();
-
-function showWebViewNotice() {
-  const el = document.getElementById('webviewNotice');
-  if (el) el.style.display = 'block';
-}
-
-function openInBrowser() {
-  // Hosted URL — change this to your actual hosted page URL
-  const url = window.location.href;
-  // Try Android intent to open in default browser
-  const intentUrl = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;action=android.intent.action.VIEW;end';
-  // Try intent first, fall back to window.open
-  try { window.location = intentUrl; } catch(e) {}
-  setTimeout(function() { window.open(url, '_system') || window.open(url, '_blank'); }, 500);
-}
+let fallbackMode = false; // true = GIS/gapi unavailable, use manual OAuth + REST
 
 function inject(src, onload, onerror, retries) {
   retries = retries || 0;
@@ -1502,6 +1470,17 @@ function inject(src, onload, onerror, retries) {
   document.head.appendChild(s);
 }
 
+function activateFallbackMode() {
+  if (fallbackMode) return;
+  fallbackMode = true;
+  console.log('[DrivePlayer] Fallback mode — using manual OAuth + REST API');
+  // Mark both pills as OK since we bypass both libraries
+  pillOk('pillGapi', 'gapiTxt', 'Drive REST ✓');
+  pillOk('pillGis', 'gisTxt', 'Manual Auth ✓');
+  gapiOk = true; gisOk = true;
+  checkReady();
+}
+
 inject(
   'https://apis.google.com/js/api.js',
   () => {
@@ -1515,8 +1494,8 @@ inject(
     });
   },
   () => {
-    pillFail('pillGapi', 'gapiTxt', 'Drive API failed');
-    if (isWebView) showWebViewNotice();
+    pillFail('pillGapi', 'gapiTxt', 'Drive API — fallback');
+    activateFallbackMode();
   }
 );
 
@@ -1535,14 +1514,103 @@ inject(
   'https://accounts.google.com/gsi/client',
   () => waitForGis(() => {
     pillFail('pillGis', 'gisTxt', 'Auth timeout');
-    if (isWebView) showWebViewNotice();
+    activateFallbackMode();
   }),
   () => {
-    pillFail('pillGis', 'gisTxt', 'Auth script failed');
-    showWebViewNotice();
-    setErr('Google blocks sign-in in app WebViews — use a browser');
+    pillFail('pillGis', 'gisTxt', 'Auth — fallback');
+    activateFallbackMode();
   }
 );
+
+// ════════════════════════════════════════
+//  MANUAL OAUTH REDIRECT FLOW (fallback)
+// ════════════════════════════════════════
+// Works in WebViews where GIS library is blocked.
+// Uses implicit grant: redirects to Google, token comes back in URL hash.
+
+function getRedirectUri() {
+  // Use current page URL without hash/search as the redirect target
+  return window.location.origin + window.location.pathname;
+}
+
+function manualSignIn() {
+  if (!CLIENT_ID) { setErr('Save your Client ID first'); return; }
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: getRedirectUri(),
+    response_type: 'token',
+    scope: SCOPES,
+    include_granted_scopes: 'true',
+    prompt: 'consent'
+  });
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+}
+
+function checkRedirectToken() {
+  // After Google redirects back, the token is in the URL hash fragment
+  const hash = window.location.hash.substring(1);
+  if (!hash || !hash.includes('access_token')) return false;
+  const params = new URLSearchParams(hash);
+  const token = params.get('access_token');
+  const expiresIn = parseInt(params.get('expires_in') || '3600', 10);
+  if (!token) return false;
+  // Clear the hash so the token isn't visible / bookmarkable
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  // Process the token
+  handleManualToken(token, expiresIn);
+  return true;
+}
+
+async function handleManualToken(token, expiresIn) {
+  accessToken = token;
+  const lifetime = expiresIn * 1000;
+  tokenExpiry = Date.now() + lifetime;
+  if (!fallbackMode && window.gapi?.client) {
+    gapi.client.setToken({ access_token: accessToken });
+  }
+  scheduleTokenRefresh(lifetime);
+  btnLoading('Loading profile…');
+  let user = {};
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: 'Bearer ' + token } });
+    user = await r.json();
+  } catch(e) {}
+  const name = user.name || user.email || 'Google User';
+  const av = document.getElementById('topAv');
+  av.innerHTML = user.picture ? `<img src="${user.picture}" alt=""/>` : (name[0] || 'G').toUpperCase();
+  document.getElementById('topName').textContent = user.given_name || name;
+  document.getElementById('screenSignin').classList.add('hidden');
+  const app = document.getElementById('screenApp');
+  app.classList.remove('hidden'); app.style.opacity = '0';
+  requestAnimationFrame(() => { app.style.transition = 'opacity .45s'; app.style.opacity = '1'; });
+  document.getElementById('liveDot').classList.add('on');
+  btnIdle(); toast('Signed in as ' + (user.given_name || name));
+  initLibrary();
+}
+
+// ════════════════════════════════════════
+//  GAPI-FREE DRIVE REST WRAPPER
+// ════════════════════════════════════════
+// When gapi is unavailable, these call the Drive v3 REST API directly via fetch.
+
+async function driveFilesList(params) {
+  // If gapi is available, use it
+  if (!fallbackMode && window.gapi?.client?.drive) {
+    return gapi.client.drive.files.list(params);
+  }
+  // Otherwise: direct REST call
+  const token = await getValidToken();
+  const url = new URL('https://www.googleapis.com/drive/v3/files');
+  if (params.q) url.searchParams.set('q', params.q);
+  if (params.pageSize) url.searchParams.set('pageSize', params.pageSize);
+  if (params.orderBy) url.searchParams.set('orderBy', params.orderBy);
+  if (params.fields) url.searchParams.set('fields', params.fields);
+  if (params.pageToken) url.searchParams.set('pageToken', params.pageToken);
+  if (params.spaces) url.searchParams.set('spaces', params.spaces);
+  const r = await fetch(url.toString(), { headers: { Authorization: 'Bearer ' + token } });
+  const json = await r.json();
+  return { result: json };
+}
 
 function checkReady() {
   if (!gapiOk || !gisOk) return;
@@ -1553,6 +1621,11 @@ function checkReady() {
 
 function buildTC() {
   if (!gapiOk || !gisOk || !CLIENT_ID) return;
+  if (fallbackMode) {
+    // In fallback mode, skip GIS tokenClient — use manual redirect OAuth
+    enableBtn();
+    return;
+  }
   try {
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID, scope: SCOPES,
@@ -1587,6 +1660,18 @@ function scheduleTokenRefresh(lifetimeMs) {
  * as long as the user hasn't revoked access.
  */
 function silentRefresh() {
+  if (fallbackMode) {
+    // In fallback mode, we can't silently refresh — redirect to re-auth
+    // Only redirect if user is actively using the app (not backgrounded)
+    console.warn('[DrivePlayer] Token expired in fallback mode — need re-auth');
+    setLiveDotRefreshing(false);
+    isRefreshing = false;
+    const q = refreshQueue.splice(0);
+    // Notify waiting callers that refresh failed
+    toast('Session expired — please sign in again');
+    signOut();
+    return;
+  }
   if (!tokenClient) return;
   setLiveDotRefreshing(true);
   tokenClient.requestAccessToken({ prompt: '' });
@@ -1649,6 +1734,11 @@ function setLiveDotRefreshing(on) {
 window.addEventListener('load', () => {
   // CLIENT_ID is embedded — mark step 1 as done immediately
   markStep(1);
+  // Check if we're returning from a manual OAuth redirect
+  if (checkRedirectToken()) {
+    // Token found in URL hash — auto-sign-in is handled by handleManualToken
+    markStep(2); markStep(3);
+  }
 });
 
 function saveClientId() {
@@ -1673,6 +1763,12 @@ function enableBtn() {
 
 function startSignIn() {
   if (!CLIENT_ID) { setErr('Save your Client ID first'); return; }
+  if (fallbackMode) {
+    // Manual redirect flow — navigate to Google's OAuth page
+    setErr(''); btnLoading('Redirecting to Google…');
+    manualSignIn();
+    return;
+  }
   if (!gapiOk)    { setErr('Drive API still loading…'); return; }
   if (!gisOk)     { setErr('Auth services still loading…'); return; }
   if (!tokenClient) { buildTC(); setTimeout(startSignIn, 700); return; }
@@ -1687,7 +1783,7 @@ async function onToken(resp) {
   // Google tokens last 3600s; store expiry with 60s safety margin
   const lifetime = (resp.expires_in || 3600) * 1000;
   tokenExpiry  = Date.now() + lifetime;
-  gapi.client.setToken({ access_token: accessToken });
+  if (window.gapi?.client) gapi.client.setToken({ access_token: accessToken });
   scheduleTokenRefresh(lifetime);
   // Resolve any callers waiting for a fresh token
   const q = refreshQueue.splice(0);
@@ -1717,8 +1813,16 @@ function signOut() {
   cancelPreload();
   if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
   isRefreshing = false; refreshQueue = []; tokenExpiry = 0;
-  if (accessToken) { try { google.accounts.oauth2.revoke(accessToken); } catch(e) {} }
-  accessToken = null; gapi.client.setToken(null);
+  if (accessToken) {
+    if (!fallbackMode && window.google?.accounts?.oauth2) {
+      try { google.accounts.oauth2.revoke(accessToken); } catch(e) {}
+    } else {
+      // Fallback: revoke via REST endpoint
+      fetch('https://oauth2.googleapis.com/revoke?token=' + accessToken, { method: 'POST' }).catch(() => {});
+    }
+  }
+  accessToken = null;
+  if (window.gapi?.client) gapi.client.setToken(null);
   allFiles = []; filtered = []; curIdx = -1;
   cloudMetaFileId = null;
   stopMedia();
@@ -1845,10 +1949,10 @@ async function getAllCachedFileIds() {
 /** Find or create the cloudplayer-metadata.json file in the music folder */
 async function findOrCreateMetadataFile() {
   const token = await getValidToken();
-  gapi.client.setToken({ access_token: token });
+  if (window.gapi?.client) gapi.client.setToken({ access_token: token });
 
   // Search for existing metadata file
-  const searchRes = await gapi.client.drive.files.list({
+  const searchRes = await driveFilesList({
     q: `name='${METADATA_FILENAME}' and '${STORAGE_FOLDER_ID}' in parents and trashed=false`,
     pageSize: 1,
     fields: 'files(id,name)'
@@ -2017,13 +2121,13 @@ async function initLibrary() {
 /** Fetch all media files from a Drive folder (non-recursive, just the folder) */
 async function fetchAllDriveFiles(folderId) {
   const token = await getValidToken();
-  gapi.client.setToken({ access_token: token });
+  if (window.gapi?.client) gapi.client.setToken({ access_token: token });
   const q = `(mimeType contains 'audio/' or mimeType contains 'video/' or mimeType='application/vnd.google-apps.folder') and '${folderId}' in parents and trashed=false`;
   let files = [], pageToken = null;
   do {
     const params = { q, pageSize: 300, orderBy: 'name', fields: 'nextPageToken,files(id,name,mimeType,size,videoMediaMetadata)' };
     if (pageToken) params.pageToken = pageToken;
-    const res = await gapi.client.drive.files.list(params);
+    const res = await driveFilesList(params);
     files = files.concat(res.result.files || []);
     pageToken = res.result.nextPageToken;
   } while (pageToken);
