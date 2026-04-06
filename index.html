@@ -1525,16 +1525,16 @@ inject(
 // ════════════════════════════════════════
 //  MANUAL OAUTH REDIRECT FLOW (fallback)
 // ════════════════════════════════════════
-// Works in WebViews where GIS library is blocked.
-// Uses implicit grant: redirects to Google, token comes back in URL hash.
+// Google returns 403 disallowed_useragent in WebViews.
+// Solution: open the OAuth URL in the device's real browser (Chrome),
+// which redirects back to the hosted page with the token. If the user
+// is already in a real browser, the redirect works directly.
 
 function getRedirectUri() {
-  // Use current page URL without hash/search as the redirect target
   return window.location.origin + window.location.pathname;
 }
 
-function manualSignIn() {
-  if (!CLIENT_ID) { setErr('Save your Client ID first'); return; }
+function buildOAuthUrl() {
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: getRedirectUri(),
@@ -1543,7 +1543,74 @@ function manualSignIn() {
     include_granted_scopes: 'true',
     prompt: 'consent'
   });
-  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+  return 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+}
+
+function manualSignIn() {
+  if (!CLIENT_ID) { setErr('Save your Client ID first'); return; }
+  const oauthUrl = buildOAuthUrl();
+
+  // Detect if we're in an Android WebView
+  const ua = navigator.userAgent || '';
+  const inWebView = /; wv\)/.test(ua) || (/Android/.test(ua) && /Version\/[\d.]+/.test(ua) && !/Chrome\/[\d.]+/.test(ua));
+
+  if (inWebView) {
+    // Open in external browser via Android Intent — this bypasses the WebView
+    // and uses Chrome/default browser where Google allows OAuth
+    const intentUrl = 'intent://' + oauthUrl.replace(/^https?:\/\//, '') +
+      '#Intent;scheme=https;action=android.intent.action.VIEW;end';
+    setErr('');
+    btnLoading('Opening browser for sign-in…');
+    // Show the paste-token UI for when user comes back
+    showTokenInput();
+    try { window.location = intentUrl; } catch(e) {
+      // Intent failed — try window.open as fallback
+      window.open(oauthUrl, '_system') || window.open(oauthUrl, '_blank');
+    }
+  } else {
+    // Normal browser — direct redirect works fine
+    setErr('');
+    btnLoading('Redirecting to Google…');
+    window.location.href = oauthUrl;
+  }
+}
+
+// ── Token paste UI (for WebView flow) ──
+// After signing in via external browser, user copies the token or
+// the redirect happens back to this page. This handles the manual paste case.
+function showTokenInput() {
+  let box = document.getElementById('tokenInputBox');
+  if (box) { box.style.display = 'block'; return; }
+  box = document.createElement('div');
+  box.id = 'tokenInputBox';
+  box.style.cssText = 'margin-top:14px;padding:14px;border-radius:12px;background:rgba(0,200,232,0.06);border:1px solid rgba(0,200,232,0.2);text-align:left';
+  box.innerHTML = `
+    <p style="font-size:11px;color:var(--cyan);margin-bottom:8px;line-height:1.5;text-align:center">After signing in, you'll be redirected back here.<br>If not, paste the URL or token from your browser:</p>
+    <input id="manualTokenInp" type="text" placeholder="Paste URL or access_token here" style="width:100%;padding:10px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--border);color:var(--text);font-family:var(--font-m);font-size:11px;outline:none" />
+    <button onclick="submitManualToken()" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;background:var(--cyan);color:#060a10;border:none;font-family:var(--font-m);font-size:11px;font-weight:600;cursor:pointer">Submit Token</button>
+  `;
+  document.querySelector('.signin-sect').appendChild(box);
+}
+
+function submitManualToken() {
+  const raw = (document.getElementById('manualTokenInp')?.value || '').trim();
+  if (!raw) { setErr('Paste the URL or token'); return; }
+  let token = '';
+  // Try to extract access_token from a full redirect URL
+  if (raw.includes('access_token=')) {
+    try {
+      const hashPart = raw.includes('#') ? raw.split('#')[1] : raw;
+      const p = new URLSearchParams(hashPart);
+      token = p.get('access_token') || '';
+    } catch(e) {}
+  }
+  // If not found, treat the whole input as a raw token
+  if (!token) token = raw;
+  if (token.length < 20) { setErr('That doesn\'t look like a valid token'); return; }
+  setErr('');
+  const box = document.getElementById('tokenInputBox');
+  if (box) box.style.display = 'none';
+  handleManualToken(token, 3600);
 }
 
 function checkRedirectToken() {
