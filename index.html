@@ -1155,6 +1155,11 @@ input[type=range]::-webkit-slider-thumb{
       <div class="err-msg" id="errMsg"></div>
     </div>
 
+    <div id="webviewNotice" style="display:none;margin-top:14px;padding:14px;border-radius:12px;background:rgba(240,184,64,0.08);border:1px solid rgba(240,184,64,0.25)">
+      <p style="font-size:11px;color:var(--amber);margin-bottom:10px;line-height:1.6">Google sign-in is blocked in app WebViews. Open this page in Chrome or your default browser instead:</p>
+      <button onclick="openInBrowser()" style="width:100%;padding:11px;border-radius:10px;background:var(--amber);color:#000;border:none;font-family:var(--font-m);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.04em">Open in Browser</button>
+    </div>
+
     <p style="font-size:10px;color:var(--muted);margin-top:18px;line-height:1.7;letter-spacing:.03em">
       Read-only access to your Drive &middot; No data stored<br>Playback happens entirely in your browser
     </p>
@@ -1452,16 +1457,44 @@ const EQ_PRESETS = {
 // ════════════════════════════════════════
 //  GOOGLE API BOOTSTRAP
 // ════════════════════════════════════════
+// ── WebView detection ──
+const isWebView = (function() {
+  const ua = navigator.userAgent || '';
+  // Android WebView: contains 'wv' flag or AppsGeyser/specific WebView markers
+  if (/; wv\)/.test(ua)) return true;
+  // Android WebView without 'wv' flag but is not Chrome-proper
+  if (/Android/.test(ua) && /Version\/[\d.]+/.test(ua) && !/Chrome\/[\d.]+/.test(ua)) return true;
+  // AppsGeyser / other wrapper apps that include Chrome but also 'wv'
+  if (/Android/.test(ua) && /Chrome\//.test(ua) && /; wv/.test(ua)) return true;
+  // iOS WebView (WKWebView or UIWebView)
+  if (/iPhone|iPad/.test(ua) && !/Safari\//.test(ua)) return true;
+  return false;
+})();
+
+function showWebViewNotice() {
+  const el = document.getElementById('webviewNotice');
+  if (el) el.style.display = 'block';
+}
+
+function openInBrowser() {
+  // Hosted URL — change this to your actual hosted page URL
+  const url = window.location.href;
+  // Try Android intent to open in default browser
+  const intentUrl = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;action=android.intent.action.VIEW;end';
+  // Try intent first, fall back to window.open
+  try { window.location = intentUrl; } catch(e) {}
+  setTimeout(function() { window.open(url, '_system') || window.open(url, '_blank'); }, 500);
+}
+
 function inject(src, onload, onerror, retries) {
   retries = retries || 0;
   const s = document.createElement('script');
-  s.src = src;
-  s.crossOrigin = 'anonymous';
+  s.src = src + (retries ? ('?' + Date.now()) : '');
   s.onload = onload;
   s.onerror = function() {
-    if (retries < 3) {
-      console.warn('Script load failed, retry ' + (retries + 1) + '/3: ' + src);
-      setTimeout(function() { inject(src, onload, onerror, retries + 1); }, 1500 * (retries + 1));
+    if (retries < 2) {
+      console.warn('Script load attempt ' + (retries + 1) + ' failed: ' + src);
+      setTimeout(function() { inject(src, onload, onerror, retries + 1); }, 2000 * (retries + 1));
     } else {
       onerror();
     }
@@ -1481,7 +1514,10 @@ inject(
       } catch(e) { pillFail('pillGapi', 'gapiTxt', 'Drive API error'); console.error(e); }
     });
   },
-  () => pillFail('pillGapi', 'gapiTxt', 'Drive API failed')
+  () => {
+    pillFail('pillGapi', 'gapiTxt', 'Drive API failed');
+    if (isWebView) showWebViewNotice();
+  }
 );
 
 function waitForGis(failCb) {
@@ -1497,8 +1533,15 @@ function waitForGis(failCb) {
 
 inject(
   'https://accounts.google.com/gsi/client',
-  () => waitForGis(() => pillFail('pillGis', 'gisTxt', 'Auth timeout')),
-  () => pillFail('pillGis', 'gisTxt', 'Auth script failed')
+  () => waitForGis(() => {
+    pillFail('pillGis', 'gisTxt', 'Auth timeout');
+    if (isWebView) showWebViewNotice();
+  }),
+  () => {
+    pillFail('pillGis', 'gisTxt', 'Auth script failed');
+    showWebViewNotice();
+    setErr('Google blocks sign-in in app WebViews — use a browser');
+  }
 );
 
 function checkReady() {
