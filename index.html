@@ -3048,15 +3048,11 @@ function closeSidebar() {
   document.body.style.overflow = '';
 }
 
-// Auto-close sidebar when a file is clicked on mobile
-const _origRenderList = renderList;
-renderList = function() {
-  _origRenderList();
-  if (window.innerWidth <= 768) {
-    document.querySelectorAll('.fitem:not(.fd)').forEach(el => {
-      el.addEventListener('click', closeSidebar, { once: false });
-    });
-  }
+// Auto-close sidebar when a media file (not folder) is clicked on mobile
+const _origPlayAt = playAt;
+playAt = function(i) {
+  _origPlayAt(i);
+  if (window.innerWidth <= 768) closeSidebar();
 };
 
 // Close sidebar on orientation change / resize to desktop
