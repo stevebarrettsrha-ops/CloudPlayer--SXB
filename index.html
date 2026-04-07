@@ -3048,7 +3048,16 @@ function closeSidebar() {
   document.body.style.overflow = '';
 }
 
-// Sidebar stays open until user manually closes it via the toggle button
+// Auto-close sidebar when a file is clicked on mobile
+const _origRenderList = renderList;
+renderList = function() {
+  _origRenderList();
+  if (window.innerWidth <= 768) {
+    document.querySelectorAll('.fitem:not(.fd)').forEach(el => {
+      el.addEventListener('click', closeSidebar, { once: false });
+    });
+  }
+};
 
 // Close sidebar on orientation change / resize to desktop
 window.addEventListener('resize', () => {
