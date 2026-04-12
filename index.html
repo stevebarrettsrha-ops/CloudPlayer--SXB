@@ -1431,6 +1431,7 @@ let gapiOk = false, gisOk = false;
 let allFiles = [], filtered = [], curIdx = -1, curFilter = 'all';
 let folderStack = [{ id: SHARED_FOLDER_ID, name: 'Shared Music' }];
 let isShuf = false, isRepeat = false, isMuted = false;
+let playErrorCount = 0; // consecutive play errors — prevents infinite skip loops
 let blobUrls = [];
 let streamController = null;   // AbortController for background chunk fetching
 let streamFileId     = null;   // which file is currently being streamed
@@ -2582,20 +2583,34 @@ async function playAt(idx) {
     if (note) note.textContent = '▶ cached';
 
     audioEl.src    = audioBlobUrl;
+    audioEl.load();
     audioEl.volume = +document.getElementById('volR').value;
     setupAudio();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      try { await audioCtx.resume(); } catch(_) {}
+    }
 
     try {
       await audioEl.play();
+      playErrorCount = 0;
       document.getElementById('disc').classList.add('playing');
       setPlayIcon(false); setNPActive(true);
       toast('▶ ' + clean + ' (cached)');
       updateMediaSession(clean);
       preloadNextTracks();
     } catch(e) {
-      console.warn('Audio play blocked:', e);
-      toast('Tap play to start', false);
-      setPlayIcon(true);
+      console.warn('Audio play error:', e);
+      if (e.name === 'NotAllowedError') {
+        toast('Tap play to start', false);
+        setPlayIcon(true);
+      } else if (++playErrorCount < 5) {
+        toast('Retrying next track…', false);
+        setTimeout(() => nextTrack(), 300);
+      } else {
+        playErrorCount = 0;
+        toast('Playback failed — tap play to retry', true);
+        setPlayIcon(true);
+      }
     }
     return;
   }
@@ -2670,22 +2685,36 @@ function downloadAudio(file, driveUrl, token, clean) {
 
     stopMedia(false);
     audioEl.src    = audioBlobUrl;
+    audioEl.load();
     audioEl.volume = +document.getElementById('volR').value;
     setupAudio();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      try { await audioCtx.resume(); } catch(_) {}
+    }
 
     try {
       await audioEl.play();
+      playErrorCount = 0;
       disc.classList.add('playing');
       setPlayIcon(false);
       setNPActive(true);
-      streamController = null; // no streaming — normal ended event works fine
+      streamController = null;
       toast('▶ ' + clean);
       updateMediaSession(clean);
       preloadNextTracks();
     } catch(e) {
-      console.warn('Audio play blocked:', e);
-      toast('Tap play to start', false);
-      setPlayIcon(true);
+      console.warn('Audio play error:', e);
+      if (e.name === 'NotAllowedError') {
+        toast('Tap play to start', false);
+        setPlayIcon(true);
+      } else if (++playErrorCount < 5) {
+        toast('Retrying next track…', false);
+        setTimeout(() => nextTrack(), 300);
+      } else {
+        playErrorCount = 0;
+        toast('Playback failed — tap play to retry', true);
+        setPlayIcon(true);
+      }
     }
   };
 
@@ -2920,6 +2949,32 @@ audioEl.addEventListener('loadedmetadata', () => { document.getElementById('tDur
 videoEl.addEventListener('timeupdate', updateProg);
 videoEl.addEventListener('ended', () => nextTrack());
 videoEl.addEventListener('loadedmetadata', () => { document.getElementById('tDur').textContent = fmtSec(videoEl.duration); });
+
+// ── Error recovery: skip to next track on media errors ──
+audioEl.addEventListener('error', () => {
+  if (!audioEl.currentSrc) return; // src cleared intentionally by stopMedia
+  console.warn('[Player] Audio error:', audioEl.error);
+  if (++playErrorCount < 5) {
+    toast('Track error — skipping', true);
+    setTimeout(() => nextTrack(), 300);
+  } else {
+    playErrorCount = 0;
+    toast('Playback failed', true);
+    setPlayIcon(true); setNPActive(false);
+  }
+});
+videoEl.addEventListener('error', () => {
+  if (!videoEl.currentSrc) return;
+  console.warn('[Player] Video error:', videoEl.error);
+  if (++playErrorCount < 5) {
+    toast('Track error — skipping', true);
+    setTimeout(() => nextTrack(), 300);
+  } else {
+    playErrorCount = 0;
+    toast('Playback failed', true);
+    setPlayIcon(true); setNPActive(false);
+  }
+});
 
 function updateProg() {
   const ovOpen = document.getElementById('videoOverlay').classList.contains('open');
