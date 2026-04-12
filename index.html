@@ -2203,10 +2203,15 @@ async function initLibrary() {
 
   setLoad(false);
 
-  // 7. Auto-play first audio track if nothing is playing
+  // 7. On first load, open the library so the user can choose a track
   if (curIdx < 0) {
-    const firstAudio = filtered.findIndex(f => f.mimeType.includes('audio/'));
-    if (firstAudio >= 0) playAt(firstAudio);
+    if (window.innerWidth <= 768) {
+      const sb = document.getElementById('sidebar');
+      const bd = document.getElementById('sidebarBackdrop');
+      if (sb) sb.classList.add('open');
+      if (bd) bd.classList.add('open');
+    }
+    toast('Choose a track to start');
   }
 }
 
