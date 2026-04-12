@@ -1409,8 +1409,11 @@ input[type=range]::-webkit-slider-thumb{
 // ════════════════════════════════════════
 //  CONSTANTS & STATE
 // ════════════════════════════════════════
-const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.profile';
+const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile';
 const DISC   = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+
+// ── Shared music folder — all users land here ──
+const SHARED_FOLDER_ID  = '1dNeCrw1sXK0Zx0LOUdEeDdxuq1qclPfI';
 
 // ── Google Drive folder for storing metadata/cache ──
 const STORAGE_FOLDER_ID = '1-BpvON_8U9ynRP-qv2Ds1HUlwv9-AhTt';
@@ -1426,7 +1429,7 @@ let isRefreshing = false;      // mutex: prevents concurrent refresh calls
 let refreshQueue = [];         // pending callbacks waiting for fresh token
 let gapiOk = false, gisOk = false;
 let allFiles = [], filtered = [], curIdx = -1, curFilter = 'all';
-let folderStack = [{ id: 'root', name: 'My Drive' }];
+let folderStack = [{ id: SHARED_FOLDER_ID, name: 'Shared Music' }];
 let isShuf = false, isRepeat = false, isMuted = false;
 let blobUrls = [];
 let streamController = null;   // AbortController for background chunk fetching
@@ -1644,6 +1647,8 @@ async function driveFilesList(params) {
   if (params.fields) url.searchParams.set('fields', params.fields);
   if (params.pageToken) url.searchParams.set('pageToken', params.pageToken);
   if (params.spaces) url.searchParams.set('spaces', params.spaces);
+  if (params.includeItemsFromAllDrives) url.searchParams.set('includeItemsFromAllDrives', 'true');
+  if (params.supportsAllDrives) url.searchParams.set('supportsAllDrives', 'true');
   const r = await fetch(url.toString(), { headers: { Authorization: 'Bearer ' + token } });
   if (!r.ok) throw new Error('Drive API ' + r.status + ': ' + (await r.text()));
   const json = await r.json();
@@ -1862,6 +1867,7 @@ function signOut() {
   accessToken = null;
   if (window.gapi?.client) gapi.client.setToken(null);
   allFiles = []; filtered = []; curIdx = -1;
+  folderStack = [{ id: SHARED_FOLDER_ID, name: 'Shared Music' }];
   cloudMetaFileId = null;
   stopMedia();
   document.getElementById('screenApp').classList.add('hidden');
@@ -2091,22 +2097,7 @@ async function initLibrary() {
     toast(`${allFiles.filter(f => !f.mimeType.includes('folder')).length} tracks (cached)`);
   }
 
-  // 2. If no local cache, try restoring from cloud metadata (cross-device sync)
-  if (!hasData) {
-    try {
-      const cloudData = await loadCloudMetadata();
-      if (cloudData && cloudData.files && cloudData.files.length > 0) {
-        allFiles = cloudData.files;
-        applyFilter();
-        hasData = true;
-        toast(`${allFiles.filter(f => !f.mimeType.includes('folder')).length} tracks (from cloud)`);
-        // Persist to local cache
-        await setCachedLibrary({ files: allFiles, folderId: 'cloud' });
-      }
-    } catch (e) {
-      console.warn('[Library] Cloud metadata restore failed:', e);
-    }
-  }
+  // 2. Cloud metadata sync skipped — readonly scope for shared folder mode
 
   // 3. Fetch fresh file list from current Drive folder
   try {
@@ -2121,11 +2112,7 @@ async function initLibrary() {
     // Save to local cache
     await setCachedLibrary({ files: allFiles, folderId });
 
-    // 4. Sync metadata to cloud (fire-and-forget)
-    saveCloudMetadata({
-      files: allFiles.map(f => ({ id: f.id, name: f.name, mimeType: f.mimeType, size: f.size })),
-      version: 1
-    });
+    // 4. Cloud metadata sync skipped — readonly scope for shared folder mode
   } catch (e) {
     console.error('[Library] Drive fetch failed, using cache:', e);
     if (!hasData) toast('Error loading Drive', true);
@@ -2163,7 +2150,7 @@ async function fetchAllDriveFiles(folderId) {
   const q = `(mimeType contains 'audio/' or mimeType contains 'video/' or mimeType='application/vnd.google-apps.folder') and '${folderId}' in parents and trashed=false`;
   let files = [], pageToken = null;
   do {
-    const params = { q, pageSize: 300, orderBy: 'name', fields: 'nextPageToken,files(id,name,mimeType,size,videoMediaMetadata)' };
+    const params = { q, pageSize: 300, orderBy: 'name', fields: 'nextPageToken,files(id,name,mimeType,size,videoMediaMetadata)', includeItemsFromAllDrives: true, supportsAllDrives: true };
     if (pageToken) params.pageToken = pageToken;
     const res = await driveFilesList(params);
     files = files.concat(res.result.files || []);
@@ -2426,7 +2413,7 @@ function renderQueue() {
 }
 
 function openFolder(id, name) { folderStack.push({ id, name }); renderBC(); loadDrive(id); }
-function goRoot()              { folderStack = [{ id: 'root', name: 'My Drive' }]; renderBC(); loadDrive('root'); }
+function goRoot()              { folderStack = [{ id: SHARED_FOLDER_ID, name: 'Shared Music' }]; renderBC(); loadDrive(SHARED_FOLDER_ID); }
 function navTo(i)              { folderStack = folderStack.slice(0, i + 1); renderBC(); loadDrive(folderStack[i].id); }
 function renderBC() {
   document.getElementById('bc').innerHTML = folderStack.map((f, i) => {
