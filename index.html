@@ -2120,23 +2120,32 @@ async function initLibrary() {
 
   renderBC();
 
-  // 5. Cache all media files — wait for completion before auto-playing
-  //    so transitions between tracks are always seamless.
-  const mediaCount = allFiles.filter(f => f.mimeType.includes('audio/') || f.mimeType.includes('video/')).length;
+  // 5. Recursively discover ALL media files across all subfolders for caching
+  let deepMedia = [];
+  try {
+    toast('Scanning all folders…');
+    deepMedia = await fetchAllDriveFilesDeep(SHARED_FOLDER_ID);
+    console.log('[Library] Deep scan found', deepMedia.length, 'media files');
+  } catch (e) {
+    console.warn('[Library] Deep scan failed, falling back to current folder:', e);
+    deepMedia = allFiles.filter(f => f.mimeType.includes('audio/') || f.mimeType.includes('video/'));
+  }
+
+  // 6. Cache all discovered media files for seamless playback
   const cachedIds = await getAllCachedFileIds();
-  const uncachedCount = allFiles.filter(f => (f.mimeType.includes('audio/') || f.mimeType.includes('video/')) && !cachedIds.has(f.id)).length;
+  const uncachedCount = deepMedia.filter(f => !cachedIds.has(f.id)).length;
 
   if (uncachedCount > 0) {
-    toast(`Caching ${uncachedCount} of ${mediaCount} files for seamless playback…`);
-    await bulkPreload();
+    toast(`Caching ${uncachedCount} of ${deepMedia.length} files for seamless playback…`);
+    await bulkPreload(deepMedia);
   } else {
     toast('All media cached — ready');
-    updatePreloadProgress(mediaCount, mediaCount);
+    updatePreloadProgress(deepMedia.length, deepMedia.length);
   }
 
   setLoad(false);
 
-  // 6. Auto-play first audio track if nothing is playing
+  // 7. Auto-play first audio track if nothing is playing
   if (curIdx < 0) {
     const firstAudio = filtered.findIndex(f => f.mimeType.includes('audio/'));
     if (firstAudio >= 0) playAt(firstAudio);
@@ -2160,14 +2169,28 @@ async function fetchAllDriveFiles(folderId) {
 }
 
 /**
+ * Recursively fetch ALL media files from a folder and all subfolders.
+ * Returns a flat array of every audio/video file found at any depth.
+ * Used on first login to pre-cache the entire shared library.
+ */
+async function fetchAllDriveFilesDeep(folderId) {
+  const files = await fetchAllDriveFiles(folderId);
+  const media = files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+  const folders = files.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+  const subResults = await Promise.all(folders.map(f => fetchAllDriveFilesDeep(f.id)));
+  for (const sub of subResults) media.push(...sub);
+  return media;
+}
+
+/**
  * Background-preload all audio files into IndexedDB.
  * Downloads one at a time to avoid overwhelming the connection.
  */
-async function bulkPreload() {
+async function bulkPreload(explicitFiles) {
   const CONCURRENCY = 3;  // parallel downloads
   const MAX_RETRIES = 2;  // retry failed files
 
-  const mediaFiles = allFiles.filter(f => f.mimeType.includes('audio/') || f.mimeType.includes('video/'));
+  const mediaFiles = explicitFiles || allFiles.filter(f => f.mimeType.includes('audio/') || f.mimeType.includes('video/'));
   if (!mediaFiles.length) return;
 
   const cachedIds = await getAllCachedFileIds();
