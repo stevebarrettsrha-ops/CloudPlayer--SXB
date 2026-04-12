@@ -1438,6 +1438,7 @@ let preloadAbort     = null;   // AbortController for bulk preload
 let isPreloading     = false;  // bulk preload in progress
 let nextPreloadAbort = null;   // AbortController for next-track preload
 let cloudMetaFileId  = null;   // Drive file ID of metadata JSON
+let autoLoginInProgress = false; // true while attempting silent auto-login
 
 const audioEl = document.getElementById('audioEl');
 const videoEl = document.getElementById('videoEl');
@@ -1620,6 +1621,9 @@ async function handleManualToken(token, expiresIn) {
   const av = document.getElementById('topAv');
   av.innerHTML = user.picture ? `<img src="${user.picture}" alt=""/>` : (name[0] || 'G').toUpperCase();
   document.getElementById('topName').textContent = user.given_name || name;
+  // Persist session for auto-login on next visit
+  localStorage.setItem('dp_user', JSON.stringify({ name: user.given_name || name, picture: user.picture || '' }));
+  localStorage.setItem('dp_session', '1');
   document.getElementById('screenSignin').classList.add('hidden');
   const app = document.getElementById('screenApp');
   app.classList.remove('hidden'); app.style.opacity = '0';
@@ -1667,16 +1671,56 @@ function buildTC() {
   if (fallbackMode) {
     // In fallback mode, skip GIS tokenClient — use manual redirect OAuth
     enableBtn();
+    tryAutoLogin();
     return;
   }
   try {
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID, scope: SCOPES,
       callback: onToken,
-      error_callback: () => { setErr('Sign-in cancelled. Allow popups and try again.'); btnIdle(); }
+      error_callback: () => {
+        if (autoLoginInProgress) {
+          // Silent auto-login failed — show sign-in screen normally
+          autoLoginInProgress = false;
+          btnIdle();
+          return;
+        }
+        setErr('Sign-in cancelled. Allow popups and try again.'); btnIdle();
+      }
     });
     enableBtn();
+    tryAutoLogin();
   } catch(e) { setErr('Invalid Client ID — check and re-save.'); console.error(e); }
+}
+
+/**
+ * Auto-login: if the user has previously signed in (dp_session flag in localStorage),
+ * silently request a fresh token without showing the sign-in screen.
+ * Restores the user profile from localStorage for instant UI while the token loads.
+ */
+function tryAutoLogin() {
+  if (!localStorage.getItem('dp_session')) return;
+  // Restore user profile immediately for instant UI
+  try {
+    const saved = JSON.parse(localStorage.getItem('dp_user') || '{}');
+    if (saved.name) {
+      const av = document.getElementById('topAv');
+      av.innerHTML = saved.picture ? `<img src="${saved.picture}" alt=""/>` : (saved.name[0] || 'G').toUpperCase();
+      document.getElementById('topName').textContent = saved.name;
+    }
+  } catch(e) {}
+  // Now silently request a fresh token
+  autoLoginInProgress = true;
+  if (fallbackMode) {
+    // Fallback mode can't silently refresh — need user interaction
+    autoLoginInProgress = false;
+    return;
+  }
+  if (tokenClient) {
+    btnLoading('Reconnecting…');
+    try { tokenClient.requestAccessToken({ prompt: '' }); }
+    catch(e) { autoLoginInProgress = false; btnIdle(); }
+  }
 }
 
 // ════════════════════════════════════════
@@ -1821,7 +1865,16 @@ function startSignIn() {
 }
 
 async function onToken(resp) {
-  if (resp.error) { setErr('Sign-in failed: ' + resp.error); btnIdle(); return; }
+  if (resp.error) {
+    // If this was an auto-login attempt, fall back to sign-in screen silently
+    if (autoLoginInProgress) {
+      autoLoginInProgress = false;
+      btnIdle();
+      return;
+    }
+    setErr('Sign-in failed: ' + resp.error); btnIdle(); return;
+  }
+  autoLoginInProgress = false;
   accessToken  = resp.access_token;
   // Google tokens last 3600s; store expiry with 60s safety margin
   const lifetime = (resp.expires_in || 3600) * 1000;
@@ -1843,6 +1896,9 @@ async function onToken(resp) {
   const av = document.getElementById('topAv');
   av.innerHTML = user.picture ? `<img src="${user.picture}" alt=""/>` : (name[0] || 'G').toUpperCase();
   document.getElementById('topName').textContent = user.given_name || name;
+  // Persist session for auto-login on next visit
+  localStorage.setItem('dp_user', JSON.stringify({ name: user.given_name || name, picture: user.picture || '' }));
+  localStorage.setItem('dp_session', '1');
   document.getElementById('screenSignin').classList.add('hidden');
   const app = document.getElementById('screenApp');
   app.classList.remove('hidden'); app.style.opacity = '0';
@@ -1866,6 +1922,8 @@ function signOut() {
   }
   accessToken = null;
   if (window.gapi?.client) gapi.client.setToken(null);
+  localStorage.removeItem('dp_session');
+  localStorage.removeItem('dp_user');
   allFiles = []; filtered = []; curIdx = -1;
   folderStack = [{ id: SHARED_FOLDER_ID, name: 'Shared Music' }];
   cloudMetaFileId = null;
