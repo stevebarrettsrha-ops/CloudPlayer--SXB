@@ -2516,6 +2516,9 @@ function renderBC() {
 // Track XHR for current audio download (so we can abort on track change)
 let audioXHR     = null;
 let audioBlobUrl = null;
+// Set while we're swapping src between tracks so the transient `pause`
+// event doesn't downgrade mediaSession.playbackState to 'paused'.
+let inTrackTransition = false;
 
 async function playAt(idx) {
   const file = filtered[idx];
@@ -2550,72 +2553,89 @@ async function playAt(idx) {
   if (li) { li.classList.add('now'); li.scrollIntoView({ block:'nearest', behavior:'smooth' }); }
   renderQueue();
 
+  // Update OS media session BEFORE any async work so the lock screen
+  // keeps the session alive through the track transition.
+  updateMediaSession(clean);
+
   const driveUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
-  const token    = await getValidToken();
+
+  // ── AUDIO — try cache FIRST so cached tracks play with no token wait.
+  //   This is critical on a locked screen: background JS is throttled,
+  //   so any await on the token (especially during a silent refresh)
+  //   can hang long enough for iOS/Android to drop the audio focus.
+  if (isAu) {
+    setLoad(true);
+
+    // Reset progress bar for new track
+    document.getElementById('pf').style.width = '0%';
+    document.getElementById('tCur').textContent = fmtSec(0);
+    document.getElementById('tDur').textContent = fmtSec(0);
+
+    const cachedBlob = await getCachedBlob(file.id);
+    if (cachedBlob) {
+      // Instant playback from local cache
+      setLoad(false);
+      if (streamFileId !== file.id) return;
+      if (audioBlobUrl) { URL.revokeObjectURL(audioBlobUrl); }
+      blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [];
+      audioBlobUrl = URL.createObjectURL(cachedBlob);
+      blobUrls.push(audioBlobUrl);
+
+      const note = document.getElementById('cdNote');
+      if (note) note.textContent = '▶ cached';
+
+      // Swap src directly — do NOT call stopMedia()/pause() first.
+      // On iOS lock screen, pausing between tracks releases audio focus
+      // and the subsequent play() then needs a user gesture.
+      inTrackTransition = true;
+      audioEl.src    = audioBlobUrl;
+      audioEl.load();
+      audioEl.volume = +document.getElementById('volR').value;
+      setupAudio();
+      if (audioCtx && audioCtx.state === 'suspended') {
+        try { await audioCtx.resume(); } catch(_) {}
+      }
+
+      try {
+        await audioEl.play();
+        inTrackTransition = false;
+        playErrorCount = 0;
+        document.getElementById('disc').classList.add('playing');
+        setPlayIcon(false); setNPActive(true);
+        toast('▶ ' + clean + ' (cached)');
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+        requestScreenWakeLock();
+        preloadNextTracks();
+      } catch(e) {
+        inTrackTransition = false;
+        console.warn('Audio play error:', e);
+        if (e.name === 'NotAllowedError') {
+          toast('Tap play to start', false);
+          setPlayIcon(true);
+        } else if (++playErrorCount < 5) {
+          toast('Retrying next track…', false);
+          setTimeout(() => nextTrack(), 300);
+        } else {
+          playErrorCount = 0;
+          toast('Playback failed — tap play to retry', true);
+          setPlayIcon(true);
+        }
+      }
+      return;
+    }
+  }
+
+  // Cache miss (or video) — fetch token then download
+  const token = await getValidToken();
 
   if (!isAu) {
-    // Video — full XHR download handled by overlay
     setLoad(false);
     openVideoOverlay(file, driveUrl, token, clean);
     return;
   }
 
-  // ── AUDIO — try cache first, then download with progress ──
+  // Not cached — download from Drive (now we can pause the old track)
   stopMedia(false);
-  setLoad(true);
-
-  // Reset progress bar for new track
-  document.getElementById('pf').style.width = '0%';
-  document.getElementById('tCur').textContent = fmtSec(0);
-  document.getElementById('tDur').textContent = fmtSec(0);
-
-  const cachedBlob = await getCachedBlob(file.id);
-  if (cachedBlob) {
-    // Instant playback from local cache
-    setLoad(false);
-    if (streamFileId !== file.id) return;
-    if (audioBlobUrl) { URL.revokeObjectURL(audioBlobUrl); }
-    blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [];
-    audioBlobUrl = URL.createObjectURL(cachedBlob);
-    blobUrls.push(audioBlobUrl);
-
-    const note = document.getElementById('cdNote');
-    if (note) note.textContent = '▶ cached';
-
-    audioEl.src    = audioBlobUrl;
-    audioEl.load();
-    audioEl.volume = +document.getElementById('volR').value;
-    setupAudio();
-    if (audioCtx && audioCtx.state === 'suspended') {
-      try { await audioCtx.resume(); } catch(_) {}
-    }
-
-    try {
-      await audioEl.play();
-      playErrorCount = 0;
-      document.getElementById('disc').classList.add('playing');
-      setPlayIcon(false); setNPActive(true);
-      toast('▶ ' + clean + ' (cached)');
-      updateMediaSession(clean);
-      preloadNextTracks();
-    } catch(e) {
-      console.warn('Audio play error:', e);
-      if (e.name === 'NotAllowedError') {
-        toast('Tap play to start', false);
-        setPlayIcon(true);
-      } else if (++playErrorCount < 5) {
-        toast('Retrying next track…', false);
-        setTimeout(() => nextTrack(), 300);
-      } else {
-        playErrorCount = 0;
-        toast('Playback failed — tap play to retry', true);
-        setPlayIcon(true);
-      }
-    }
-    return;
-  }
-
-  // Not cached — download from Drive
   showAudioProgress(clean);
   downloadAudio(file, driveUrl, token, clean);
 }
@@ -2701,6 +2721,7 @@ function downloadAudio(file, driveUrl, token, clean) {
       streamController = null;
       toast('▶ ' + clean);
       updateMediaSession(clean);
+      requestScreenWakeLock();
       preloadNextTracks();
     } catch(e) {
       console.warn('Audio play error:', e);
@@ -2745,6 +2766,10 @@ function stopMedia(clear = true) {
   if (cd) cd.style.display = 'block';
   videoEl.style.display = 'none';
   setPlayIcon(true); setNPActive(false);
+  if (clear && 'mediaSession' in navigator) {
+    navigator.mediaSession.playbackState = 'none';
+  }
+  if (clear) releaseScreenWakeLock();
 }
 
 // ════════════════════════════════════════
@@ -2943,9 +2968,26 @@ function drawVis() {
 // ════════════════════════════════════════
 //  PLAYER CONTROLS
 // ════════════════════════════════════════
-audioEl.addEventListener('timeupdate', updateProg);
+audioEl.addEventListener('timeupdate', () => { updateProg(); updateMediaSessionPosition(); });
 audioEl.addEventListener('ended', () => nextTrack());
-audioEl.addEventListener('loadedmetadata', () => { document.getElementById('tDur').textContent = fmtSec(audioEl.duration); });
+audioEl.addEventListener('loadedmetadata', () => {
+  document.getElementById('tDur').textContent = fmtSec(audioEl.duration);
+  updateMediaSessionPosition();
+});
+// Keep the OS playback state in sync so the lock-screen play/pause icon
+// stays correct AND so the OS knows we want to keep playing across track
+// boundaries (preventing the "stops at end of song" lock-screen bug).
+audioEl.addEventListener('play', () => {
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+  requestScreenWakeLock();
+});
+audioEl.addEventListener('pause', () => {
+  // If we're paused but at the end of the track, the 'ended' handler will
+  // advance us — leave playbackState alone so the OS doesn't kill the session.
+  if (audioEl.ended || inTrackTransition) return;
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+  releaseScreenWakeLock();
+});
 videoEl.addEventListener('timeupdate', updateProg);
 videoEl.addEventListener('ended', () => nextTrack());
 videoEl.addEventListener('loadedmetadata', () => { document.getElementById('tDur').textContent = fmtSec(videoEl.duration); });
@@ -3085,27 +3127,96 @@ function setNPActive(on) {
 // ════════════════════════════════════════
 //  MEDIA SESSION — lock screen controls
 // ════════════════════════════════════════
+let mediaSessionHandlersBound = false;
+
+function bindMediaSessionHandlers() {
+  if (mediaSessionHandlersBound || !('mediaSession' in navigator)) return;
+  const ms = navigator.mediaSession;
+  // Register handlers ONCE. The OS keeps these for the lifetime of the
+  // session; rebinding them on every track briefly toggles the session
+  // off, which on some devices interrupts background audio.
+  try { ms.setActionHandler('play',          () => { if (audioEl.paused) togglePlay(); }); } catch(_) {}
+  try { ms.setActionHandler('pause',         () => { if (!audioEl.paused) togglePlay(); }); } catch(_) {}
+  try { ms.setActionHandler('previoustrack', () => prevTrack()); } catch(_) {}
+  try { ms.setActionHandler('nexttrack',     () => nextTrack()); } catch(_) {}
+  try { ms.setActionHandler('seekto', (details) => {
+    const ovOpen = document.getElementById('videoOverlay').classList.contains('open');
+    const el = ovOpen ? document.getElementById('overlayVideoEl') : audioEl;
+    if (el.duration && details.seekTime != null) {
+      el.currentTime = details.seekTime;
+    }
+  }); } catch(_) {}
+  try { ms.setActionHandler('seekbackward', (details) => {
+    const skip = details.seekOffset || 10;
+    audioEl.currentTime = Math.max(0, audioEl.currentTime - skip);
+  }); } catch(_) {}
+  try { ms.setActionHandler('seekforward', (details) => {
+    const skip = details.seekOffset || 10;
+    if (audioEl.duration) audioEl.currentTime = Math.min(audioEl.duration, audioEl.currentTime + skip);
+  }); } catch(_) {}
+  try { ms.setActionHandler('stop', () => stopMedia(true)); } catch(_) {}
+  mediaSessionHandlersBound = true;
+}
+
 function updateMediaSession(title) {
   if (!('mediaSession' in navigator)) return;
+  bindMediaSessionHandlers();
 
   navigator.mediaSession.metadata = new MediaMetadata({
     title: title,
     artist: 'DrivePlayer',
     album: 'Google Drive'
   });
-
-  navigator.mediaSession.setActionHandler('play', () => togglePlay());
-  navigator.mediaSession.setActionHandler('pause', () => togglePlay());
-  navigator.mediaSession.setActionHandler('previoustrack', () => prevTrack());
-  navigator.mediaSession.setActionHandler('nexttrack', () => nextTrack());
-  navigator.mediaSession.setActionHandler('seekto', (details) => {
-    const ovOpen = document.getElementById('videoOverlay').classList.contains('open');
-    const el = ovOpen ? document.getElementById('overlayVideoEl') : audioEl;
-    if (el.duration && details.seekTime != null) {
-      el.currentTime = details.seekTime;
-    }
-  });
+  // Tell the OS we intend to keep playing — without this, the lock
+  // screen treats the next() that follows 'ended' as new playback and
+  // may suppress it.
+  navigator.mediaSession.playbackState = 'playing';
 }
+
+function updateMediaSessionPosition() {
+  if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
+  const dur = audioEl.duration;
+  if (!dur || !isFinite(dur)) return;
+  try {
+    navigator.mediaSession.setPositionState({
+      duration: dur,
+      playbackRate: audioEl.playbackRate || 1,
+      position: Math.min(audioEl.currentTime || 0, dur)
+    });
+  } catch(_) {}
+}
+
+// ════════════════════════════════════════
+//  BACKGROUND PLAYBACK — wake lock + visibility recovery
+// ════════════════════════════════════════
+let wakeLockSentinel = null;
+
+async function requestScreenWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  if (wakeLockSentinel && !wakeLockSentinel.released) return;
+  try {
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
+  } catch(_) { /* user may have denied or page hidden */ }
+}
+
+function releaseScreenWakeLock() {
+  if (wakeLockSentinel) {
+    try { wakeLockSentinel.release(); } catch(_) {}
+    wakeLockSentinel = null;
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  // When returning to the foreground, re-acquire wake lock and resume the
+  // audio context if it was suspended while backgrounded.
+  if (document.visibilityState === 'visible') {
+    if (!audioEl.paused) requestScreenWakeLock();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+  }
+});
 
 // ════════════════════════════════════════
 //  UTILITIES
