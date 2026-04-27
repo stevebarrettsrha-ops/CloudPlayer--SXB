@@ -2358,7 +2358,7 @@ function cancelPreload() {
  * Preload the next N tracks in the queue into IndexedDB so playback
  * transitions are seamless. Called after a track starts playing.
  */
-async function preloadNextTracks(count = 3) {
+async function preloadNextTracks(count = 10) {
   // Cancel any previous next-track preload
   if (nextPreloadAbort) { nextPreloadAbort.abort(); }
   nextPreloadAbort = new AbortController();
@@ -2379,18 +2379,20 @@ async function preloadNextTracks(count = 3) {
     targets.push(m[n]);
   }
 
-  for (const file of targets) {
+  // Fetch in parallel so one stalled connection (common on a locked
+  // screen) doesn't starve the queue. Each fetch is independent.
+  await Promise.all(targets.map(async (file) => {
     if (signal.aborted) return;
-    const cached = await getCachedBlob(file.id);
-    if (cached) continue; // already cached
-
     try {
+      const cached = await getCachedBlob(file.id);
+      if (cached) return;
       const token = await getValidToken();
+      if (signal.aborted) return;
       const resp = await fetch(
         `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
         { headers: { Authorization: 'Bearer ' + token }, signal }
       );
-      if (!resp.ok) continue;
+      if (!resp.ok) return;
       const blob = await resp.blob();
       if (signal.aborted) return;
       await setCachedBlob(file.id, blob, file.name, file.mimeType);
@@ -2399,7 +2401,7 @@ async function preloadNextTracks(count = 3) {
       if (e.name === 'AbortError') return;
       console.warn('[Preload] Next track error:', file.name, e);
     }
-  }
+  }));
 }
 
 // ════════════════════════════════════════
@@ -2417,8 +2419,35 @@ async function loadDrive(folderId) {
     toast(`${n} media file${n !== 1 ? 's' : ''} found`);
     // Update local cache when browsing
     setCachedLibrary({ files: allFiles, folderId });
+    // Prioritize caching THIS folder so the lock-screen queue can play
+    // through every track without waiting on the global library preload
+    // (which may not have reached this folder yet).
+    prioritizeFolderCache(allFiles);
   } catch(e) { console.error(e); toast('Error loading Drive', true); }
   finally { setLoad(false); }
+}
+
+/**
+ * Make the current folder's media files the next thing to cache.
+ * Aborts any in-progress global bulkPreload, runs a focused preload on
+ * this folder, then resumes the global preload of the rest of the
+ * library afterwards. Does nothing if everything is already cached.
+ */
+async function prioritizeFolderCache(folderFiles) {
+  const folderMedia = (folderFiles || []).filter(
+    f => f.mimeType.includes('audio/') || f.mimeType.includes('video/')
+  );
+  if (!folderMedia.length) return;
+  const cachedIds = await getAllCachedFileIds();
+  const uncached = folderMedia.filter(f => !cachedIds.has(f.id));
+  if (!uncached.length) return;
+
+  // Abort whatever global preload was running and focus on THIS folder
+  // so the user can lock the screen and have every track play through.
+  if (preloadAbort) { preloadAbort.abort(); preloadAbort = null; }
+  isPreloading = false;
+
+  bulkPreload(folderMedia);
 }
 
 function applyFilter() {
@@ -2587,13 +2616,17 @@ async function playAt(idx) {
       // Swap src directly — do NOT call stopMedia()/pause() first.
       // On iOS lock screen, pausing between tracks releases audio focus
       // and the subsequent play() then needs a user gesture.
+      // We also skip audioEl.load() — setting src already triggers the
+      // media element load algorithm; an explicit load() forces an extra
+      // reset that on iOS can briefly silence the OS audio session.
       inTrackTransition = true;
       audioEl.src    = audioBlobUrl;
-      audioEl.load();
       audioEl.volume = +document.getElementById('volR').value;
       setupAudio();
-      if (audioCtx && audioCtx.state === 'suspended') {
-        try { await audioCtx.resume(); } catch(_) {}
+      // Resume Web Audio without awaiting — on a locked screen the
+      // promise can hang in the throttled task queue and delay play().
+      if (audioCtx && audioCtx.state !== 'running') {
+        audioCtx.resume().catch(() => {});
       }
 
       try {
@@ -2705,11 +2738,10 @@ function downloadAudio(file, driveUrl, token, clean) {
 
     stopMedia(false);
     audioEl.src    = audioBlobUrl;
-    audioEl.load();
     audioEl.volume = +document.getElementById('volR').value;
     setupAudio();
-    if (audioCtx && audioCtx.state === 'suspended') {
-      try { await audioCtx.resume(); } catch(_) {}
+    if (audioCtx && audioCtx.state !== 'running') {
+      audioCtx.resume().catch(() => {});
     }
 
     try {
@@ -2789,6 +2821,13 @@ function setupAudio() {
 
   // First call: build the whole audio graph once
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // iOS can move the context to 'suspended' or 'interrupted' on lock /
+  // phone-call / route-change. Auto-resume so playback survives.
+  audioCtx.addEventListener('statechange', () => {
+    if (!audioEl.paused && audioCtx.state !== 'running') {
+      audioCtx.resume().catch(() => {});
+    }
+  });
   srcNode  = audioCtx.createMediaElementSource(audioEl);
 
   // Build EQ filter chain
