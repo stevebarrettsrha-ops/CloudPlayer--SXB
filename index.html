@@ -794,6 +794,153 @@ input[type=range]::-webkit-slider-thumb{
   box-shadow:0 0 6px rgba(0,200,232,0.3);
 }
 
+/* ── Source tabs (Drive / YouTube / Vault) ── */
+.src-tabs{
+  display:flex;gap:6px;padding:10px 16px 0;flex-shrink:0;
+}
+.src-tab{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:8px 4px;cursor:pointer;
+  color:var(--sub);font-family:var(--font-m);font-size:9px;
+  letter-spacing:.08em;text-transform:uppercase;
+  transition:all .2s;
+}
+.src-tab svg{width:13px;height:13px;flex-shrink:0}
+.src-tab:hover{border-color:var(--border-hi);color:var(--text)}
+.src-tab.on{
+  background:var(--cyan-dim);color:var(--cyan);
+  border-color:rgba(0,200,232,0.35);
+  box-shadow:0 0 12px rgba(0,200,232,0.12);
+}
+.src-tab.on.yt{
+  background:rgba(224,80,96,0.1);color:#ff5c6c;
+  border-color:rgba(224,80,96,0.4);
+  box-shadow:0 0 12px rgba(224,80,96,0.12);
+}
+.src-tab.on.vault{
+  background:var(--green-dim);color:var(--green);
+  border-color:rgba(0,229,155,0.35);
+  box-shadow:0 0 12px rgba(0,229,155,0.12);
+}
+
+/* ── Vault storage bar ── */
+.vault-bar{padding:10px 16px 0;flex-shrink:0}
+.vault-row{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px;
+}
+.vault-usage{font-size:9px;color:var(--sub);letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vault-usage b{color:var(--green);font-weight:500}
+.vault-up{
+  background:linear-gradient(135deg,var(--green),#00b8d0);
+  color:#060a10;border:none;border-radius:8px;
+  font-family:var(--font-m);font-size:9px;font-weight:600;
+  padding:6px 12px;cursor:pointer;letter-spacing:.05em;
+  transition:opacity .2s,transform .1s;white-space:nowrap;flex-shrink:0;
+  box-shadow:0 3px 10px rgba(0,229,155,0.25);
+}
+.vault-up:hover{opacity:.9;transform:translateY(-1px)}
+.vault-meter{
+  height:4px;background:var(--panel2);border-radius:2px;overflow:hidden;
+}
+.vault-meter-fill{
+  height:100%;width:0%;border-radius:2px;
+  background:linear-gradient(90deg,var(--green),var(--cyan));
+  transition:width .5s ease;
+}
+.vault-hint{font-size:8px;color:var(--muted);margin-top:6px;letter-spacing:.04em;line-height:1.6}
+
+/* vault item delete button */
+.fdel{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  width:26px;height:26px;border-radius:7px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;opacity:0;
+}
+.fitem:hover .fdel{opacity:1}
+.fdel:hover{color:var(--red);background:rgba(224,80,96,0.1)}
+.fdel svg{width:12px;height:12px}
+@media (hover:none){.fdel{opacity:.6}}
+
+/* ── YouTube cards ── */
+.yt-add{
+  display:flex;gap:6px;padding:8px 16px;flex-shrink:0;
+}
+.yt-add input{
+  flex:1;min-width:0;background:var(--panel2);
+  border:1px solid var(--border);border-radius:9px;
+  color:var(--text);font-family:var(--font-m);font-size:10px;
+  padding:8px 11px;outline:none;transition:border-color .2s;
+}
+.yt-add input:focus{border-color:#ff5c6c}
+.yt-add input::placeholder{color:var(--muted)}
+.yt-add button{
+  background:rgba(224,80,96,0.12);border:1px solid rgba(224,80,96,0.35);
+  border-radius:9px;color:#ff5c6c;font-family:var(--font-m);
+  font-size:10px;font-weight:500;padding:0 14px;cursor:pointer;
+  transition:all .2s;white-space:nowrap;
+}
+.yt-add button:hover{background:rgba(224,80,96,0.22)}
+
+.yt-item{
+  display:flex;align-items:center;gap:11px;
+  padding:9px 16px;cursor:pointer;
+  transition:background .12s;
+  border-left:2px solid transparent;
+}
+.yt-item:hover{background:var(--panel)}
+.yt-thumb{
+  width:38px;height:38px;border-radius:50%;object-fit:cover;
+  flex-shrink:0;background:var(--panel2);
+  border:1px solid var(--border);
+}
+.yt-thumb.vid{
+  width:74px;height:42px;border-radius:8px;
+}
+.yt-meta{min-width:0;flex:1}
+.yt-name{
+  font-size:11px;color:var(--text);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;line-height:1.4;
+}
+.yt-sub{font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:.05em}
+.yt-badge{
+  font-size:8px;color:#ff5c6c;background:rgba(224,80,96,0.1);
+  border-radius:4px;padding:1px 5px;letter-spacing:.06em;
+}
+.yt-note{
+  font-size:10px;color:var(--sub);line-height:1.8;
+  padding:14px 20px;text-align:center;
+}
+.yt-note a{color:var(--cyan)}
+
+/* YouTube iframe in the video overlay */
+#ytFrame{
+  display:none;width:100%;height:100%;border:none;background:#000;
+  position:relative;z-index:5;
+}
+
+/* ── Drag & drop overlay ── */
+.drop-overlay{
+  display:none;position:fixed;inset:0;z-index:600;
+  background:rgba(6,10,16,0.88);backdrop-filter:blur(8px);
+  align-items:center;justify-content:center;
+  flex-direction:column;gap:16px;pointer-events:none;
+}
+.drop-overlay.show{display:flex}
+.drop-box{
+  border:2px dashed rgba(0,229,155,0.5);border-radius:24px;
+  padding:48px 64px;text-align:center;
+  background:rgba(0,229,155,0.04);
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  animation:dropPulse 1.4s ease-in-out infinite;
+}
+@keyframes dropPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+.drop-box svg{width:44px;height:44px;color:var(--green)}
+.drop-title{font-family:var(--font-h);font-size:26px;font-weight:300;color:var(--warm)}
+.drop-sub{font-size:10px;color:var(--sub);letter-spacing:.08em;text-transform:uppercase}
+
 /* loading bar */
 .lbar{position:fixed;top:0;left:0;height:2px;width:0%;z-index:1000;transition:width .4s;background:linear-gradient(90deg,var(--cyan),var(--blue),var(--green))}
 
@@ -1117,6 +1264,16 @@ input[type=range]::-webkit-slider-thumb{
 <div class="lbar" id="lb"></div>
 <div class="toast" id="toast"></div>
 
+<!-- Vault upload input + drag-drop overlay -->
+<input type="file" id="vaultFileInp" multiple accept="audio/*,video/*" style="display:none" onchange="vaultImportFiles(this.files);this.value=''"/>
+<div class="drop-overlay" id="dropOverlay">
+  <div class="drop-box">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <div class="drop-title">Drop to add to your Vault</div>
+    <div class="drop-sub">Music &amp; video · stored on this device</div>
+  </div>
+</div>
+
 <!-- hidden stubs for JS compat -->
 <input id="cidInp" type="hidden" value="745322669687-dhrv25ih7g2ckomq41v7bvghu0shsrvv.apps.googleusercontent.com"/>
 <div id="step1" class="step done" style="display:none"><span class="step-n" id="s1n">&#10003;</span></div>
@@ -1134,7 +1291,7 @@ input[type=range]::-webkit-slider-thumb{
       </svg>
     </div>
     <div class="logo">Drive<em>Player</em></div>
-    <div class="tagline" style="margin-bottom:28px">Stream your Google Drive music &amp; videos</div>
+    <div class="tagline" style="margin-bottom:28px">Drive &middot; YouTube &middot; Your personal vault</div>
 
     <!-- ── Normal browser sign-in (hidden in WebView) ── -->
     <div id="normalSignin">
@@ -1168,7 +1325,8 @@ input[type=range]::-webkit-slider-thumb{
     </div>
 
     <p style="font-size:10px;color:var(--muted);margin-top:18px;line-height:1.7;letter-spacing:.03em">
-      Read-only access to your Drive &middot; No data stored<br>Playback happens entirely in your browser
+      Read-only access to your Drive &amp; YouTube<br>
+      Vault files stay on this device &middot; playback runs entirely in your browser
     </p>
   </div>
 </div>
@@ -1211,9 +1369,31 @@ input[type=range]::-webkit-slider-thumb{
   <aside class="sidebar" id="sidebar">
     <div class="sb-head">
       <span class="sb-title">Library</span>
-      <button class="icon-btn" onclick="loadDrive()" title="Refresh">
+      <button class="icon-btn" onclick="refreshSource()" title="Refresh">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
       </button>
+    </div>
+    <div class="src-tabs">
+      <button class="src-tab on" id="srcTabDrive" onclick="setSource('drive')" title="Google Drive library">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+        Drive
+      </button>
+      <button class="src-tab" id="srcTabYt" onclick="setSource('youtube')" title="YouTube channels">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        YouTube
+      </button>
+      <button class="src-tab" id="srcTabVault" onclick="setSource('vault')" title="Your personal storage — files kept on this device">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Vault
+      </button>
+    </div>
+    <div class="vault-bar" id="vaultBar" style="display:none">
+      <div class="vault-row">
+        <span class="vault-usage" id="vaultUsage">Calculating storage…</span>
+        <button class="vault-up" onclick="document.getElementById('vaultFileInp').click()">+ Add Files</button>
+      </div>
+      <div class="vault-meter"><div class="vault-meter-fill" id="vaultMeterFill"></div></div>
+      <div class="vault-hint">Music &amp; video stored in this browser (IndexedDB) — plays instantly, works offline. Drag &amp; drop files anywhere to add.</div>
     </div>
     <div class="bc" id="bc">
       <span class="bci last" onclick="goRoot()">My Drive</span>
@@ -1394,6 +1574,8 @@ input[type=range]::-webkit-slider-thumb{
     <video id="overlayVideoEl" controls preload="auto"
            onended="onOverlayVideoEnded()">
     </video>
+    <!-- YouTube embed player (shown instead of the video element for YT content) -->
+    <iframe id="ytFrame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
     <!-- Tap-to-play fallback if autoplay is blocked -->
     <div class="video-tap-play" id="videoTapPlay" onclick="tapToPlay()">
       <div class="video-tap-btn">
@@ -1409,7 +1591,7 @@ input[type=range]::-webkit-slider-thumb{
 // ════════════════════════════════════════
 //  CONSTANTS & STATE
 // ════════════════════════════════════════
-const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile';
+const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/youtube.readonly';
 const DISC   = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 
 // ── Shared music folder — all users land here ──
@@ -1419,7 +1601,7 @@ const SHARED_FOLDER_ID  = '1dNeCrw1sXK0Zx0LOUdEeDdxuq1qclPfI';
 const STORAGE_FOLDER_ID = '1-BpvON_8U9ynRP-qv2Ds1HUlwv9-AhTt';
 const METADATA_FILENAME = 'cloudplayer-metadata.json';
 const DB_NAME = 'CloudPlayerCache';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let CLIENT_ID    = localStorage.getItem('dp_cid') || '745322669687-dhrv25ih7g2ckomq41v7bvghu0shsrvv.apps.googleusercontent.com';
 let accessToken  = null, tokenClient = null;
@@ -1440,6 +1622,20 @@ let isPreloading     = false;  // bulk preload in progress
 let nextPreloadAbort = null;   // AbortController for next-track preload
 let cloudMetaFileId  = null;   // Drive file ID of metadata JSON
 let autoLoginInProgress = false; // true while attempting silent auto-login
+
+// ── Content source: 'drive' | 'youtube' | 'vault' ──
+let curSource   = 'drive';
+let driveFilesSnapshot = null;  // cached drive listing while browsing other sources
+
+// ── YouTube state ──
+let ytView           = 'channels';  // 'channels' | 'videos'
+let ytChannels       = [];          // [{id,title,thumb,subscribed}]
+let ytVideos         = [];          // [{id,title,thumb,published}]
+let ytCurrentChannel = null;        // {id,title}
+let ytLoading        = false;
+
+// ── Vault state ──
+let vaultPersistAsked = false;
 
 const audioEl = document.getElementById('audioEl');
 const videoEl = document.getElementById('videoEl');
@@ -1928,6 +2124,17 @@ function signOut() {
   allFiles = []; filtered = []; curIdx = -1;
   folderStack = [{ id: SHARED_FOLDER_ID, name: 'Shared Music' }];
   cloudMetaFileId = null;
+  // Reset content source to Drive so next sign-in starts clean
+  curSource = 'drive'; ytView = 'channels'; ytChannels = []; ytVideos = []; ytCurrentChannel = null;
+  const tD = document.getElementById('srcTabDrive'), tY = document.getElementById('srcTabYt'), tV = document.getElementById('srcTabVault');
+  if (tD) tD.classList.add('on');
+  if (tY) tY.classList.remove('on', 'yt');
+  if (tV) tV.classList.remove('on', 'vault');
+  const vb = document.getElementById('vaultBar');
+  if (vb) vb.style.display = 'none';
+  const fb = document.querySelector('.fbar');
+  if (fb) fb.style.display = 'flex';
+  renderBC();
   stopMedia();
   document.getElementById('screenApp').classList.add('hidden');
   document.getElementById('screenSignin').classList.remove('hidden');
@@ -1978,6 +2185,9 @@ function openCacheDB() {
       }
       if (!db.objectStoreNames.contains('metadata')) {
         db.createObjectStore('metadata', { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains('vaultMeta')) {
+        db.createObjectStore('vaultMeta', { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -2451,6 +2661,11 @@ async function prioritizeFolderCache(folderFiles) {
 }
 
 function applyFilter() {
+  if (curSource === 'youtube') {
+    if (ytView === 'videos') renderYtVideos();
+    else renderYtChannels();
+    return;
+  }
   const q = document.getElementById('sq').value.toLowerCase();
   filtered = allFiles.filter(f => {
     const ok = f.name.toLowerCase().includes(q);
@@ -2470,9 +2685,12 @@ function setFilter(el, v) {
 function renderList() {
   const el = document.getElementById('flist');
   if (!filtered.length) {
+    const msg = curSource === 'vault'
+      ? 'Your Vault is empty.<br>Click <b>+ Add Files</b> above or drag &amp; drop<br>music / videos anywhere on this page.'
+      : 'No media files found';
     el.innerHTML = `<div class="empty">
       <div class="empty-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
-      <div class="empty-txt">No media files found</div></div>`;
+      <div class="empty-txt">${msg}</div></div>`;
     return;
   }
   el.innerHTML = filtered.map((f, i) => {
@@ -2485,13 +2703,20 @@ function renderList() {
       ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`
       : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`;
     const ext  = isDir ? 'Folder' : f.name.split('.').pop().toUpperCase();
-    const dur  = f.videoMediaMetadata?.durationMillis ? fmtMs(+f.videoMediaMetadata.durationMillis) : '';
+    const dur  = f.vault
+      ? (f.size ? fmtSize(f.size) : '')
+      : (f.videoMediaMetadata?.durationMillis ? fmtMs(+f.videoMediaMetadata.durationMillis) : '');
     const act  = !isDir && i === curIdx ? ' now' : '';
     const oc   = isDir ? `openFolder('${esc2(f.id)}','${esc2(f.name)}')` : `playAt(${i})`;
+    const del  = f.vault
+      ? `<button class="fdel" onclick="event.stopPropagation();vaultDelete('${esc2(f.id)}')" title="Delete from Vault">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        </button>`
+      : '';
     return `<div class="fitem${act}" data-i="${i}" onclick="${oc}">
       <div class="ficon ${cls}">${icon}</div>
-      <div class="fmeta"><div class="fname">${esc(f.name)}</div><div class="ftype">${ext}</div></div>
-      ${dur ? `<div class="fdur">${dur}</div>` : ''}
+      <div class="fmeta"><div class="fname">${esc(f.name)}</div><div class="ftype">${ext}${f.vault ? ' · VAULT' : ''}</div></div>
+      ${dur ? `<div class="fdur">${dur}</div>` : ''}${del}
     </div>`;
   }).join('');
   renderQueue();
@@ -2539,6 +2764,426 @@ function renderBC() {
 }
 
 // ════════════════════════════════════════
+//  CONTENT SOURCES — Drive / YouTube / Vault
+// ════════════════════════════════════════
+
+function setSource(src) {
+  if (src === curSource) return;
+  curSource = src;
+
+  // Tab highlighting
+  const tabD = document.getElementById('srcTabDrive');
+  const tabY = document.getElementById('srcTabYt');
+  const tabV = document.getElementById('srcTabVault');
+  tabD.classList.toggle('on', src === 'drive');
+  tabY.classList.toggle('on', src === 'youtube');
+  tabY.classList.toggle('yt', src === 'youtube');
+  tabV.classList.toggle('on', src === 'vault');
+  tabV.classList.toggle('vault', src === 'vault');
+
+  // Per-source chrome
+  const fbar = document.querySelector('.fbar');
+  const sq   = document.getElementById('sq');
+  document.getElementById('vaultBar').style.display = src === 'vault' ? 'block' : 'none';
+  if (fbar) fbar.style.display = src === 'youtube' ? 'none' : 'flex';
+  sq.placeholder = src === 'youtube' ? 'Search channels & videos…' : 'Search files…';
+  sq.value = '';
+
+  if (src === 'drive') {
+    renderBC();
+    loadDrive();
+  } else if (src === 'vault') {
+    document.getElementById('bc').innerHTML = '<span class="bci last">My Vault</span>';
+    loadVault();
+    updateVaultMeter();
+  } else {
+    renderYtBC();
+    loadYouTube();
+  }
+}
+
+function refreshSource() {
+  if (curSource === 'drive') loadDrive();
+  else if (curSource === 'vault') { loadVault(); updateVaultMeter(); }
+  else if (ytView === 'videos' && ytCurrentChannel) openYtChannel(ytCurrentChannel.id, ytCurrentChannel.title, true);
+  else loadYouTube(true);
+}
+
+// ════════════════════════════════════════
+//  PERSONAL VAULT — IndexedDB file storage
+// ════════════════════════════════════════
+
+function vaultGetAllMeta() {
+  return openCacheDB().then(db => new Promise((resolve) => {
+    const tx = db.transaction('vaultMeta', 'readonly');
+    const req = tx.objectStore('vaultMeta').getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror   = () => resolve([]);
+  })).catch(() => []);
+}
+
+function vaultPutMeta(meta) {
+  return openCacheDB().then(db => new Promise((resolve) => {
+    const tx = db.transaction('vaultMeta', 'readwrite');
+    tx.objectStore('vaultMeta').put(meta);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror    = () => resolve(false);
+  })).catch(() => false);
+}
+
+function vaultDeleteMeta(id) {
+  return openCacheDB().then(db => new Promise((resolve) => {
+    const tx = db.transaction(['vaultMeta', 'audioBlobs'], 'readwrite');
+    tx.objectStore('vaultMeta').delete(id);
+    tx.objectStore('audioBlobs').delete(id);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror    = () => resolve(false);
+  })).catch(() => false);
+}
+
+async function loadVault() {
+  const meta = await vaultGetAllMeta();
+  meta.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  allFiles = meta.map(m => ({ id: m.id, name: m.name, mimeType: m.mimeType, size: m.size, vault: true }));
+  applyFilter();
+  const n = allFiles.length;
+  if (curSource === 'vault') {
+    toast(n ? `${n} file${n !== 1 ? 's' : ''} in your Vault` : 'Vault is empty — add some files');
+  }
+}
+
+/** Import files (from picker or drag-drop) into the vault */
+async function vaultImportFiles(fileList) {
+  const files = Array.from(fileList || []).filter(f =>
+    f.type.startsWith('audio/') || f.type.startsWith('video/'));
+  const skipped = (fileList?.length || 0) - files.length;
+  if (skipped > 0) toast(`${skipped} file${skipped !== 1 ? 's' : ''} skipped — audio & video only`, true);
+  if (!files.length) return;
+
+  // Ask the browser to protect our storage from eviction (once)
+  if (!vaultPersistAsked && navigator.storage?.persist) {
+    vaultPersistAsked = true;
+    navigator.storage.persist().catch(() => {});
+  }
+
+  let done = 0;
+  for (const f of files) {
+    const id = 'vault_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '_' + Math.random().toString(36).slice(2));
+    toast(`Importing ${++done}/${files.length}: ${f.name}`);
+    const okBlob = await setCachedBlob(id, f, f.name, f.type);
+    if (!okBlob) { toast('Storage full — could not save ' + f.name, true); break; }
+    await vaultPutMeta({ id, name: f.name, mimeType: f.type, size: f.size, addedAt: Date.now() });
+  }
+  toast(`✓ ${done} file${done !== 1 ? 's' : ''} added to your Vault`);
+
+  // Jump to the vault so the user sees their new files
+  if (curSource !== 'vault') setSource('vault');
+  else { loadVault(); updateVaultMeter(); }
+}
+
+async function vaultDelete(id) {
+  const f = allFiles.find(x => x.id === id);
+  await vaultDeleteMeta(id);
+  if (curIdx >= 0 && filtered[curIdx]?.id === id) stopMedia();
+  toast((f ? f.name : 'File') + ' removed from Vault');
+  loadVault();
+  updateVaultMeter();
+}
+
+async function updateVaultMeter() {
+  const usageEl = document.getElementById('vaultUsage');
+  const fillEl  = document.getElementById('vaultMeterFill');
+  if (!usageEl || !fillEl) return;
+  const meta = await vaultGetAllMeta();
+  const vaultBytes = meta.reduce((s, m) => s + (m.size || 0), 0);
+  let quotaTxt = '';
+  try {
+    if (navigator.storage?.estimate) {
+      const est = await navigator.storage.estimate();
+      if (est.quota) {
+        fillEl.style.width = Math.min(100, (est.usage / est.quota) * 100).toFixed(1) + '%';
+        quotaTxt = ' · ' + fmtSize(est.quota - est.usage) + ' free';
+      }
+    }
+  } catch (_) {}
+  usageEl.innerHTML = `<b>${meta.length}</b> file${meta.length !== 1 ? 's' : ''} · <b>${fmtSize(vaultBytes)}</b>${esc(quotaTxt)}`;
+}
+
+// ── Drag & drop anywhere to import ──
+let dragDepth = 0;
+window.addEventListener('dragenter', (e) => {
+  if (!e.dataTransfer?.types?.includes('Files')) return;
+  e.preventDefault();
+  dragDepth++;
+  document.getElementById('dropOverlay').classList.add('show');
+});
+window.addEventListener('dragover', (e) => { e.preventDefault(); });
+window.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  if (--dragDepth <= 0) {
+    dragDepth = 0;
+    document.getElementById('dropOverlay').classList.remove('show');
+  }
+});
+window.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  document.getElementById('dropOverlay').classList.remove('show');
+  if (e.dataTransfer?.files?.length) vaultImportFiles(e.dataTransfer.files);
+});
+
+// ════════════════════════════════════════
+//  YOUTUBE — subscribed & custom channels
+// ════════════════════════════════════════
+
+const YT_API = 'https://www.googleapis.com/youtube/v3/';
+
+async function ytFetch(path, params) {
+  const url = new URL(YT_API + path);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const r = await authFetch(url.toString());
+  if (!r.ok) {
+    const body = await r.text().catch(() => '');
+    const err = new Error('YouTube API ' + r.status);
+    err.status = r.status;
+    err.body = body;
+    throw err;
+  }
+  return r.json();
+}
+
+function ytSavedChannels() {
+  try { return JSON.parse(localStorage.getItem('dp_yt_channels') || '[]'); }
+  catch { return []; }
+}
+function ytSaveChannels(list) {
+  localStorage.setItem('dp_yt_channels', JSON.stringify(list));
+}
+
+function renderYtBC() {
+  const bc = document.getElementById('bc');
+  if (ytView === 'videos' && ytCurrentChannel) {
+    bc.innerHTML = `<span class="bci" onclick="showYtChannels()">YouTube</span><span class="bcsep"> › </span><span class="bci last">${esc(ytCurrentChannel.title)}</span>`;
+  } else {
+    bc.innerHTML = '<span class="bci last">YouTube</span>';
+  }
+}
+
+function ytErrorNote(e) {
+  if (e && (e.status === 403 || e.status === 401)) {
+    if ((e.body || '').includes('insufficient')) {
+      return 'This session was signed in before YouTube support was added.<br>Sign out and sign back in to grant YouTube access.';
+    }
+    return 'YouTube API not reachable (HTTP ' + e.status + ').<br>Make sure <b>YouTube Data API v3</b> is enabled for this app\'s Google Cloud project.';
+  }
+  return 'Could not load YouTube data — check your connection and try again.';
+}
+
+async function loadYouTube(force) {
+  ytView = 'channels';
+  renderYtBC();
+  if (ytChannels.length && !force) { renderYtChannels(); return; }
+
+  const el = document.getElementById('flist');
+  el.innerHTML = '<div class="yt-note">Loading your channels…</div>';
+  ytLoading = true;
+
+  const saved = ytSavedChannels().map(c => ({ ...c, subscribed: false }));
+  let subs = [];
+  let subsErr = null;
+  try {
+    let pageToken = null, pages = 0;
+    do {
+      const params = { part: 'snippet', mine: 'true', maxResults: '50', order: 'alphabetical' };
+      if (pageToken) params.pageToken = pageToken;
+      const res = await ytFetch('subscriptions', params);
+      subs = subs.concat((res.items || []).map(it => ({
+        id: it.snippet?.resourceId?.channelId,
+        title: it.snippet?.title || 'Channel',
+        thumb: it.snippet?.thumbnails?.default?.url || '',
+        subscribed: true
+      })));
+      pageToken = res.nextPageToken;
+    } while (pageToken && ++pages < 4);
+  } catch (e) {
+    console.warn('[YouTube] subscriptions failed:', e);
+    subsErr = e;
+  }
+  ytLoading = false;
+
+  // Merge: saved channels first, then subscriptions (dedup by id)
+  const seen = new Set();
+  ytChannels = [...saved, ...subs].filter(c => c.id && !seen.has(c.id) && seen.add(c.id));
+
+  renderYtChannels(subsErr);
+}
+
+function renderYtChannels(subsErr) {
+  if (curSource !== 'youtube' || ytView !== 'channels') return;
+  const q = document.getElementById('sq').value.toLowerCase();
+  const list = ytChannels.filter(c => c.title.toLowerCase().includes(q));
+  const el = document.getElementById('flist');
+
+  const addRow = `
+    <div class="yt-add">
+      <input id="ytAddInp" type="text" placeholder="Add channel — @handle or URL" onkeydown="if(event.key==='Enter')addYtChannel()"/>
+      <button onclick="addYtChannel()">Add</button>
+    </div>`;
+
+  const errRow = subsErr ? `<div class="yt-note">${ytErrorNote(subsErr)}</div>` : '';
+
+  if (!list.length) {
+    el.innerHTML = addRow + errRow + (subsErr ? '' :
+      `<div class="yt-note">No channels yet.<br>Add one above, or subscribe to channels on YouTube with this Google account.</div>`);
+    return;
+  }
+
+  el.innerHTML = addRow + errRow + list.map(c => `
+    <div class="yt-item" onclick="openYtChannel('${esc2(c.id)}','${esc2(c.title)}')">
+      ${c.thumb ? `<img class="yt-thumb" src="${esc(c.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer"/>` : '<div class="yt-thumb"></div>'}
+      <div class="yt-meta">
+        <div class="yt-name">${esc(c.title)}</div>
+        <div class="yt-sub">${c.subscribed ? 'Subscribed' : 'Added by you'}</div>
+      </div>
+      ${c.subscribed ? '' : `<button class="fdel" onclick="event.stopPropagation();removeYtChannel('${esc2(c.id)}')" title="Remove">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`}
+    </div>`).join('');
+}
+
+function showYtChannels() {
+  ytView = 'channels';
+  renderYtBC();
+  renderYtChannels();
+}
+
+/** Add a channel by @handle, channel URL, or raw channel ID */
+async function addYtChannel() {
+  const inp = document.getElementById('ytAddInp');
+  let v = (inp?.value || '').trim();
+  if (!v) return;
+
+  // Extract handle or ID from a pasted URL
+  const urlHandle = v.match(/youtube\.com\/(@[\w.\-]+)/i);
+  const urlChan   = v.match(/youtube\.com\/channel\/(UC[\w\-]+)/i);
+  if (urlHandle) v = urlHandle[1];
+  else if (urlChan) v = urlChan[1];
+
+  toast('Looking up channel…');
+  try {
+    const params = { part: 'snippet' };
+    if (/^UC[\w\-]{20,}$/.test(v)) params.id = v;
+    else params.forHandle = v.startsWith('@') ? v : '@' + v;
+    const res = await ytFetch('channels', params);
+    const it = (res.items || [])[0];
+    if (!it) { toast('Channel not found', true); return; }
+
+    const chan = {
+      id: it.id,
+      title: it.snippet?.title || v,
+      thumb: it.snippet?.thumbnails?.default?.url || ''
+    };
+    const saved = ytSavedChannels();
+    if (!saved.some(c => c.id === chan.id)) {
+      saved.unshift(chan);
+      ytSaveChannels(saved);
+    }
+    if (!ytChannels.some(c => c.id === chan.id)) {
+      ytChannels.unshift({ ...chan, subscribed: false });
+    }
+    if (inp) inp.value = '';
+    toast('✓ Added ' + chan.title);
+    renderYtChannels();
+  } catch (e) {
+    console.warn('[YouTube] add channel failed:', e);
+    toast('Could not add channel — see YouTube tab for details', true);
+    renderYtChannels(e);
+  }
+}
+
+function removeYtChannel(id) {
+  ytSaveChannels(ytSavedChannels().filter(c => c.id !== id));
+  ytChannels = ytChannels.filter(c => !(c.id === id && !c.subscribed));
+  renderYtChannels();
+}
+
+/** Open a channel: list its uploads (newest first) */
+async function openYtChannel(channelId, title, force) {
+  ytCurrentChannel = { id: channelId, title };
+  ytView = 'videos';
+  renderYtBC();
+  document.getElementById('sq').value = '';
+
+  const el = document.getElementById('flist');
+  el.innerHTML = '<div class="yt-note">Loading videos…</div>';
+
+  // A channel's uploads playlist ID is its channel ID with UC → UU
+  const uploadsId = 'UU' + channelId.slice(2);
+  try {
+    let vids = [], pageToken = null, pages = 0;
+    do {
+      const params = { part: 'snippet', playlistId: uploadsId, maxResults: '50' };
+      if (pageToken) params.pageToken = pageToken;
+      const res = await ytFetch('playlistItems', params);
+      vids = vids.concat((res.items || []).map(it => ({
+        id: it.snippet?.resourceId?.videoId,
+        title: it.snippet?.title || 'Video',
+        thumb: it.snippet?.thumbnails?.medium?.url || it.snippet?.thumbnails?.default?.url || '',
+        published: it.snippet?.publishedAt || ''
+      })).filter(x => x.id));
+      pageToken = res.nextPageToken;
+    } while (pageToken && ++pages < 2);
+    ytVideos = vids;
+    renderYtVideos();
+  } catch (e) {
+    console.warn('[YouTube] uploads failed:', e);
+    el.innerHTML = `<div class="yt-note">${ytErrorNote(e)}</div>`;
+  }
+}
+
+function renderYtVideos() {
+  if (curSource !== 'youtube' || ytView !== 'videos') return;
+  const q = document.getElementById('sq').value.toLowerCase();
+  const list = ytVideos.filter(v => v.title.toLowerCase().includes(q));
+  const el = document.getElementById('flist');
+  if (!list.length) {
+    el.innerHTML = '<div class="yt-note">No videos found</div>';
+    return;
+  }
+  el.innerHTML = list.map(v => `
+    <div class="yt-item" onclick="playYtVideo('${esc2(v.id)}','${esc2(v.title)}')">
+      ${v.thumb ? `<img class="yt-thumb vid" src="${esc(v.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer"/>` : '<div class="yt-thumb vid"></div>'}
+      <div class="yt-meta">
+        <div class="yt-name">${esc(v.title)}</div>
+        <div class="yt-sub">${v.published ? esc(v.published.slice(0, 10)) : ''} <span class="yt-badge">YT</span></div>
+      </div>
+    </div>`).join('');
+}
+
+/** Play a YouTube video in the overlay via the official embed player */
+function playYtVideo(videoId, title) {
+  const overlay = document.getElementById('videoOverlay');
+  const frame   = document.getElementById('ytFrame');
+  const ovVideo = document.getElementById('overlayVideoEl');
+  const loadPanel = document.getElementById('videoLoadingPanel');
+
+  // Stop any local media so audio doesn't double up
+  stopMedia();
+
+  document.getElementById('videoOverlayTitle').textContent = title;
+  ovVideo.style.display = 'none';
+  loadPanel.classList.add('hidden');
+  document.getElementById('videoTapPlay').classList.remove('show');
+
+  frame.src = 'https://www.youtube.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&rel=0&modestbranding=1';
+  frame.style.display = 'block';
+
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  if (window.innerWidth <= 768) closeSidebar();
+}
+
+// ════════════════════════════════════════
 //  PLAYBACK  — full XHR download with progress, no chunking
 // ════════════════════════════════════════
 
@@ -2564,7 +3209,7 @@ async function playAt(idx) {
 
   document.getElementById('tTitle').textContent = clean;
   document.getElementById('tSub').textContent   =
-    file.mimeType.split('/')[1].toUpperCase() + ' · Google Drive';
+    file.mimeType.split('/')[1].toUpperCase() + (file.vault || file.id.startsWith('vault_') ? ' · My Vault' : ' · Google Drive');
 
   const disc = document.getElementById('disc');
   const cd   = document.getElementById('cdDisc');
@@ -2656,6 +3301,21 @@ async function playAt(idx) {
       }
       return;
     }
+  }
+
+  // Vault videos are always local — open the overlay straight from cache,
+  // no Drive token needed (and none may exist if offline).
+  if (!isAu && file.id.startsWith('vault_')) {
+    setLoad(false);
+    openVideoOverlay(file, driveUrl, null, clean);
+    return;
+  }
+
+  // Vault audio with a missing blob (cache was cleared) — can't re-download
+  if (isAu && file.id.startsWith('vault_')) {
+    setLoad(false);
+    toast('File data missing — re-add it to your Vault', true);
+    return;
   }
 
   // Cache miss (or video) — fetch token then download
@@ -3273,8 +3933,15 @@ function toast(m, e = false) {
 }
 function fmtSec(s) { if (!s || isNaN(s)) return '0:00'; return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`; }
 function fmtMs(ms)  { return fmtSec(ms / 1000); }
+function fmtSize(b) {
+  if (!b || isNaN(b)) return '0 B';
+  const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return (i === 0 ? b : b.toFixed(1)) + ' ' + u[i];
+}
 function esc(s)     { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function esc2(s)    { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function esc2(s)    { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function rand(n)    { return Math.floor(Math.random() * n); }
 
 // ════════════════════════════════════════
@@ -3356,7 +4023,9 @@ function openVideoOverlay(file, driveUrl, token, clean) {
   const pctEl    = document.getElementById('vloadPct');
   const titleEl  = document.getElementById('videoOverlayTitle');
 
-  // Reset state fully
+  // Reset state fully (including any YouTube embed left open)
+  const ytF = document.getElementById('ytFrame');
+  if (ytF) { ytF.src = ''; ytF.style.display = 'none'; }
   ovVideo.style.display  = 'none';
   ovVideo.src            = '';
   ovVideo.ontimeupdate   = null;
@@ -3411,6 +4080,13 @@ function openVideoOverlay(file, driveUrl, token, clean) {
       playVideoBlob(cachedBlob);
       updateMediaSession(clean);
       preloadNextTracks();
+      return;
+    }
+
+    // Vault files are local-only — nothing to download if the blob is gone
+    if (file.id.startsWith('vault_') || !token) {
+      closeVideoOverlay();
+      toast('File data missing — re-add it to your Vault', true);
       return;
     }
 
@@ -3488,7 +4164,9 @@ function closeVideoOverlay() {
   document.body.style.overflow = '';
   if (tapPanel) tapPanel.classList.remove('show');
 
-  // Stop and clean up
+  // Stop and clean up (including the YouTube embed)
+  const ytF = document.getElementById('ytFrame');
+  if (ytF) { ytF.src = ''; ytF.style.display = 'none'; }
   ovVideo.pause();
   ovVideo.src          = '';
   ovVideo.style.display = 'none';
