@@ -1,0 +1,16 @@
+{
+  "name": "DrivePlayer",
+  "short_name": "DrivePlayer",
+  "description": "Stream Google Drive music & video, YouTube channels, and your personal offline vault",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#060a10",
+  "theme_color": "#060a10",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#060a10"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<link rel="icon" href="icon.svg" type="image/svg+xml"/>
 <title>DrivePlayer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
@@ -794,6 +800,309 @@ input[type=range]::-webkit-slider-thumb{
   box-shadow:0 0 6px rgba(0,200,232,0.3);
 }
 
+/* ── Offline / guest mode button on sign-in ── */
+.offline-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;margin-top:12px;padding:11px;border-radius:12px;
+  background:none;border:1px solid var(--border);cursor:pointer;
+  font-family:var(--font-m);font-size:10px;color:var(--sub);
+  letter-spacing:.05em;transition:all .2s;
+}
+.offline-btn:hover{border-color:rgba(0,229,155,0.4);color:var(--green);background:var(--green-dim)}
+
+/* Install app button */
+.install-btn{border-color:rgba(0,229,155,0.35);color:var(--green)}
+.install-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+
+/* Favorites */
+.ftab.fav{flex:0 0 auto;min-width:34px}
+.ffav{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  width:26px;height:26px;border-radius:7px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;opacity:0;
+}
+.fitem:hover .ffav{opacity:1}
+.ffav:hover{color:#ff5c6c;background:rgba(224,80,96,0.1)}
+.ffav.on{opacity:1;color:#ff5c6c}
+.ffav svg{width:12px;height:12px}
+@media (hover:none){.ffav{opacity:.6}.ffav.on{opacity:1}}
+
+/* Playback speed + sleep timer buttons */
+.speed-btn span{
+  font-family:var(--font-m);font-size:10px;font-weight:500;letter-spacing:.02em;
+}
+.sleep-btn{position:relative}
+.sleep-lbl{
+  position:absolute;bottom:2px;right:2px;
+  font-family:var(--font-m);font-size:7px;color:var(--amber);
+  letter-spacing:.02em;pointer-events:none;
+}
+.sleep-btn.on{color:var(--amber)}
+.sleep-btn.on svg{filter:drop-shadow(0 0 4px rgba(240,184,64,0.5))}
+
+/* ── Playlists ── */
+.src-tab.on.pl{
+  background:var(--amber-dim);color:var(--amber);
+  border-color:rgba(240,184,64,0.35);
+  box-shadow:0 0 12px rgba(240,184,64,0.12);
+}
+.pl-add{display:flex;gap:6px;padding:8px 16px;flex-shrink:0}
+.pl-add input{
+  flex:1;min-width:0;background:var(--panel2);
+  border:1px solid var(--border);border-radius:9px;
+  color:var(--text);font-family:var(--font-m);font-size:10px;
+  padding:8px 11px;outline:none;transition:border-color .2s;
+}
+.pl-add input:focus{border-color:var(--amber)}
+.pl-add input::placeholder{color:var(--muted)}
+.pl-add button{
+  background:var(--amber-dim);border:1px solid rgba(240,184,64,0.35);
+  border-radius:9px;color:var(--amber);font-family:var(--font-m);
+  font-size:10px;font-weight:500;padding:0 14px;cursor:pointer;
+  transition:all .2s;white-space:nowrap;
+}
+.pl-add button:hover{background:rgba(240,184,64,0.22)}
+
+/* add-to-playlist button on file rows */
+.fadd{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  width:26px;height:26px;border-radius:7px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;opacity:0;
+}
+.fitem:hover .fadd{opacity:1}
+.fadd:hover{color:var(--amber);background:var(--amber-dim)}
+.fadd svg{width:13px;height:13px}
+@media (hover:none){.fadd{opacity:.6}}
+
+/* playlist track reorder buttons */
+.pmov{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  width:22px;height:22px;border-radius:6px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;opacity:0;
+}
+.fitem:hover .pmov{opacity:1}
+.pmov:hover{color:var(--cyan);background:var(--cyan-dim)}
+.pmov svg{width:11px;height:11px}
+@media (hover:none){.pmov{opacity:.6}}
+
+/* playlist play-all icon */
+.pl-play{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.pl-play:hover{color:var(--cyan);background:var(--cyan-dim)}
+.pl-play svg{width:14px;height:14px}
+
+/* ── Add-to-playlist picker popup ── */
+.plpick-overlay{
+  display:none;position:fixed;inset:0;z-index:700;
+  background:rgba(6,10,16,0.78);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;padding:20px;
+}
+.plpick-overlay.show{display:flex}
+.plpick{
+  background:linear-gradient(160deg,rgba(16,22,36,0.99) 0%,rgba(10,15,24,0.99) 100%);
+  border:1px solid var(--border-hi);border-radius:18px;
+  padding:20px;width:340px;max-width:100%;
+  box-shadow:0 24px 64px rgba(0,0,0,0.7);
+}
+.plpick-title{
+  font-family:var(--font-h);font-size:20px;font-weight:300;
+  color:var(--warm);margin-bottom:4px;
+}
+.plpick-track{
+  font-size:10px;color:var(--sub);margin-bottom:14px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.plpick-list{max-height:220px;overflow-y:auto;margin-bottom:12px}
+.plpick-list::-webkit-scrollbar{width:3px}
+.plpick-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.plpick-item{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 12px;border-radius:9px;cursor:pointer;
+  font-size:11px;color:var(--text);transition:background .15s;
+}
+.plpick-item:hover{background:var(--panel)}
+.plpick-item span{font-size:9px;color:var(--muted)}
+.plpick-empty{font-size:10px;color:var(--muted);padding:10px 12px;text-align:center}
+.plpick-new{display:flex;gap:6px}
+.plpick-new input{
+  flex:1;min-width:0;background:var(--panel2);
+  border:1px solid var(--border);border-radius:9px;
+  color:var(--text);font-family:var(--font-m);font-size:10px;
+  padding:9px 11px;outline:none;
+}
+.plpick-new input:focus{border-color:var(--amber)}
+.plpick-new button{
+  background:var(--amber-dim);border:1px solid rgba(240,184,64,0.35);
+  border-radius:9px;color:var(--amber);font-family:var(--font-m);
+  font-size:10px;padding:0 12px;cursor:pointer;white-space:nowrap;
+}
+.plpick-new button:hover{background:rgba(240,184,64,0.22)}
+
+/* Backup button variant */
+.vault-up.alt{
+  background:none;color:var(--green);
+  border:1px solid rgba(0,229,155,0.35);
+  box-shadow:none;font-weight:500;
+}
+.vault-up.alt:hover{background:var(--green-dim)}
+
+/* Share button in now-playing */
+.share-btn{margin-left:auto}
+
+/* ── Source tabs (Drive / YouTube / Vault) ── */
+.src-tabs{
+  display:flex;gap:6px;padding:10px 16px 0;flex-shrink:0;
+}
+.src-tab{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:8px 4px;cursor:pointer;
+  color:var(--sub);font-family:var(--font-m);font-size:9px;
+  letter-spacing:.08em;text-transform:uppercase;
+  transition:all .2s;
+}
+.src-tab svg{width:13px;height:13px;flex-shrink:0}
+.src-tab:hover{border-color:var(--border-hi);color:var(--text)}
+.src-tab.on{
+  background:var(--cyan-dim);color:var(--cyan);
+  border-color:rgba(0,200,232,0.35);
+  box-shadow:0 0 12px rgba(0,200,232,0.12);
+}
+.src-tab.on.yt{
+  background:rgba(224,80,96,0.1);color:#ff5c6c;
+  border-color:rgba(224,80,96,0.4);
+  box-shadow:0 0 12px rgba(224,80,96,0.12);
+}
+.src-tab.on.vault{
+  background:var(--green-dim);color:var(--green);
+  border-color:rgba(0,229,155,0.35);
+  box-shadow:0 0 12px rgba(0,229,155,0.12);
+}
+
+/* ── Vault storage bar ── */
+.vault-bar{padding:10px 16px 0;flex-shrink:0}
+.vault-row{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:7px;gap:8px;
+}
+.vault-usage{font-size:9px;color:var(--sub);letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vault-usage b{color:var(--green);font-weight:500}
+.vault-up{
+  background:linear-gradient(135deg,var(--green),#00b8d0);
+  color:#060a10;border:none;border-radius:8px;
+  font-family:var(--font-m);font-size:9px;font-weight:600;
+  padding:6px 12px;cursor:pointer;letter-spacing:.05em;
+  transition:opacity .2s,transform .1s;white-space:nowrap;flex-shrink:0;
+  box-shadow:0 3px 10px rgba(0,229,155,0.25);
+}
+.vault-up:hover{opacity:.9;transform:translateY(-1px)}
+.vault-meter{
+  height:4px;background:var(--panel2);border-radius:2px;overflow:hidden;
+}
+.vault-meter-fill{
+  height:100%;width:0%;border-radius:2px;
+  background:linear-gradient(90deg,var(--green),var(--cyan));
+  transition:width .5s ease;
+}
+.vault-hint{font-size:8px;color:var(--muted);margin-top:6px;letter-spacing:.04em;line-height:1.6}
+
+/* vault item delete button */
+.fdel{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  width:26px;height:26px;border-radius:7px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;opacity:0;
+}
+.fitem:hover .fdel{opacity:1}
+.fdel:hover{color:var(--red);background:rgba(224,80,96,0.1)}
+.fdel svg{width:12px;height:12px}
+@media (hover:none){.fdel{opacity:.6}}
+
+/* ── YouTube cards ── */
+.yt-add{
+  display:flex;gap:6px;padding:8px 16px;flex-shrink:0;
+}
+.yt-add input{
+  flex:1;min-width:0;background:var(--panel2);
+  border:1px solid var(--border);border-radius:9px;
+  color:var(--text);font-family:var(--font-m);font-size:10px;
+  padding:8px 11px;outline:none;transition:border-color .2s;
+}
+.yt-add input:focus{border-color:#ff5c6c}
+.yt-add input::placeholder{color:var(--muted)}
+.yt-add button{
+  background:rgba(224,80,96,0.12);border:1px solid rgba(224,80,96,0.35);
+  border-radius:9px;color:#ff5c6c;font-family:var(--font-m);
+  font-size:10px;font-weight:500;padding:0 14px;cursor:pointer;
+  transition:all .2s;white-space:nowrap;
+}
+.yt-add button:hover{background:rgba(224,80,96,0.22)}
+
+.yt-item{
+  display:flex;align-items:center;gap:11px;
+  padding:9px 16px;cursor:pointer;
+  transition:background .12s;
+  border-left:2px solid transparent;
+}
+.yt-item:hover{background:var(--panel)}
+.yt-thumb{
+  width:38px;height:38px;border-radius:50%;object-fit:cover;
+  flex-shrink:0;background:var(--panel2);
+  border:1px solid var(--border);
+}
+.yt-thumb.vid{
+  width:74px;height:42px;border-radius:8px;
+}
+.yt-meta{min-width:0;flex:1}
+.yt-name{
+  font-size:11px;color:var(--text);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;line-height:1.4;
+}
+.yt-sub{font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:.05em}
+.yt-badge{
+  font-size:8px;color:#ff5c6c;background:rgba(224,80,96,0.1);
+  border-radius:4px;padding:1px 5px;letter-spacing:.06em;
+}
+.yt-note{
+  font-size:10px;color:var(--sub);line-height:1.8;
+  padding:14px 20px;text-align:center;
+}
+.yt-note a{color:var(--cyan)}
+
+/* YouTube iframe in the video overlay */
+#ytFrame{
+  display:none;width:100%;height:100%;border:none;background:#000;
+  position:relative;z-index:5;
+}
+
+/* ── Drag & drop overlay ── */
+.drop-overlay{
+  display:none;position:fixed;inset:0;z-index:600;
+  background:rgba(6,10,16,0.88);backdrop-filter:blur(8px);
+  align-items:center;justify-content:center;
+  flex-direction:column;gap:16px;pointer-events:none;
+}
+.drop-overlay.show{display:flex}
+.drop-box{
+  border:2px dashed rgba(0,229,155,0.5);border-radius:24px;
+  padding:48px 64px;text-align:center;
+  background:rgba(0,229,155,0.04);
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  animation:dropPulse 1.4s ease-in-out infinite;
+}
+@keyframes dropPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+.drop-box svg{width:44px;height:44px;color:var(--green)}
+.drop-title{font-family:var(--font-h);font-size:26px;font-weight:300;color:var(--warm)}
+.drop-sub{font-size:10px;color:var(--sub);letter-spacing:.08em;text-transform:uppercase}
+
 /* loading bar */
 .lbar{position:fixed;top:0;left:0;height:2px;width:0%;z-index:1000;transition:width .4s;background:linear-gradient(90deg,var(--cyan),var(--blue),var(--green))}
 
@@ -1117,6 +1426,29 @@ input[type=range]::-webkit-slider-thumb{
 <div class="lbar" id="lb"></div>
 <div class="toast" id="toast"></div>
 
+<!-- Vault upload input + drag-drop overlay -->
+<input type="file" id="vaultFileInp" multiple accept="audio/*,video/*" style="display:none" onchange="vaultImportFiles(this.files);this.value=''"/>
+<!-- Add-to-playlist picker -->
+<div class="plpick-overlay" id="plPickOverlay" onclick="closePlPicker()">
+  <div class="plpick" onclick="event.stopPropagation()">
+    <div class="plpick-title">Add to playlist</div>
+    <div class="plpick-track" id="plPickTrack"></div>
+    <div class="plpick-list" id="plPickList"></div>
+    <div class="plpick-new">
+      <input id="plPickNewInp" type="text" placeholder="New playlist name…" onkeydown="if(event.key==='Enter')plPickCreate()"/>
+      <button onclick="plPickCreate()">Create &amp; add</button>
+    </div>
+  </div>
+</div>
+
+<div class="drop-overlay" id="dropOverlay">
+  <div class="drop-box">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <div class="drop-title">Drop to add to your Vault</div>
+    <div class="drop-sub">Music &amp; video · stored on this device</div>
+  </div>
+</div>
+
 <!-- hidden stubs for JS compat -->
 <input id="cidInp" type="hidden" value="745322669687-dhrv25ih7g2ckomq41v7bvghu0shsrvv.apps.googleusercontent.com"/>
 <div id="step1" class="step done" style="display:none"><span class="step-n" id="s1n">&#10003;</span></div>
@@ -1134,7 +1466,7 @@ input[type=range]::-webkit-slider-thumb{
       </svg>
     </div>
     <div class="logo">Drive<em>Player</em></div>
-    <div class="tagline" style="margin-bottom:28px">Stream your Google Drive music &amp; videos</div>
+    <div class="tagline" style="margin-bottom:28px">Drive &middot; YouTube &middot; Your personal vault</div>
 
     <!-- ── Normal browser sign-in (hidden in WebView) ── -->
     <div id="normalSignin">
@@ -1156,6 +1488,11 @@ input[type=range]::-webkit-slider-thumb{
         <div class="btn-hint" id="btnHint">Initialising&#8230;</div>
         <div class="err-msg" id="errMsg"></div>
       </div>
+
+      <button class="offline-btn" onclick="enterOffline()" title="Use your Vault without signing in — works fully offline">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Continue offline — Vault only
+      </button>
     </div>
 
     <!-- ── WebView blocker (shown only in WebView) ── -->
@@ -1168,7 +1505,8 @@ input[type=range]::-webkit-slider-thumb{
     </div>
 
     <p style="font-size:10px;color:var(--muted);margin-top:18px;line-height:1.7;letter-spacing:.03em">
-      Read-only access to your Drive &middot; No data stored<br>Playback happens entirely in your browser
+      Read-only access to your Drive &amp; YouTube<br>
+      Vault files stay on this device &middot; playback runs entirely in your browser
     </p>
   </div>
 </div>
@@ -1185,6 +1523,10 @@ input[type=range]::-webkit-slider-thumb{
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <div class="top-right">
+      <button class="tbtn install-btn" id="installBtn" style="display:none" onclick="installApp()" title="Install DrivePlayer as an app">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span class="btn-lbl">Install</span>
+      </button>
       <div class="uchip">
         <div class="uav" id="topAv">?</div>
         <span id="topName">User</span>
@@ -1211,9 +1553,36 @@ input[type=range]::-webkit-slider-thumb{
   <aside class="sidebar" id="sidebar">
     <div class="sb-head">
       <span class="sb-title">Library</span>
-      <button class="icon-btn" onclick="loadDrive()" title="Refresh">
+      <button class="icon-btn" onclick="refreshSource()" title="Refresh">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
       </button>
+    </div>
+    <div class="src-tabs">
+      <button class="src-tab on" id="srcTabDrive" onclick="setSource('drive')" title="Google Drive library">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+        Drive
+      </button>
+      <button class="src-tab" id="srcTabYt" onclick="setSource('youtube')" title="YouTube channels">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        YouTube
+      </button>
+      <button class="src-tab" id="srcTabVault" onclick="setSource('vault')" title="Your personal storage — files kept on this device">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Vault
+      </button>
+      <button class="src-tab" id="srcTabPl" onclick="setSource('playlists')" title="Your playlists — mix Drive and Vault tracks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="13" y2="6"/><line x1="3" y1="12" x2="13" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/><polygon points="15 15 21 18 15 21 15 15" fill="currentColor" stroke="none"/></svg>
+        Lists
+      </button>
+    </div>
+    <div class="vault-bar" id="vaultBar" style="display:none">
+      <div class="vault-row">
+        <span class="vault-usage" id="vaultUsage">Calculating storage…</span>
+        <button class="vault-up alt" onclick="vaultExport()" title="Back up every Vault file to a folder on your device">Backup</button>
+        <button class="vault-up" onclick="document.getElementById('vaultFileInp').click()">+ Add</button>
+      </div>
+      <div class="vault-meter"><div class="vault-meter-fill" id="vaultMeterFill"></div></div>
+      <div class="vault-hint">Music &amp; video stored in this browser (IndexedDB) — plays instantly, works offline. Drag &amp; drop files anywhere to add.</div>
     </div>
     <div class="bc" id="bc">
       <span class="bci last" onclick="goRoot()">My Drive</span>
@@ -1223,6 +1592,7 @@ input[type=range]::-webkit-slider-thumb{
       <button class="ftab on" onclick="setFilter(this,'all')">All</button>
       <button class="ftab" onclick="setFilter(this,'audio')">Audio</button>
       <button class="ftab" onclick="setFilter(this,'video')">Video</button>
+      <button class="ftab fav" onclick="setFilter(this,'fav')" title="Favorites">&hearts;</button>
     </div>
     <div class="sbar">
       <span class="sbar-icon">
@@ -1271,6 +1641,9 @@ input[type=range]::-webkit-slider-thumb{
               <span></span><span></span><span></span><span></span><span></span>
             </div>
             <span class="np-label">Now Playing</span>
+            <button class="icon-btn share-btn" onclick="shareCurrentTrack()" title="Share this track">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </button>
           </div>
           <div class="t-title" id="tTitle">Select a track</div>
           <div class="t-sub" id="tSub">Browse your Drive library on the left</div>
@@ -1307,6 +1680,7 @@ input[type=range]::-webkit-slider-thumb{
               <button class="eq-action-btn" id="eqBtnRock" onclick="eqPreset('rock')">Rock</button>
               <button class="eq-action-btn" id="eqBtnElectronic" onclick="eqPreset('electronic')">Electronic</button>
               <button class="eq-action-btn" id="bassBoostBtn" onclick="toggleBassBoost()">Bass Boost 🔊</button>
+              <button class="eq-action-btn" id="xfadeBtn" onclick="cycleCrossfade()" title="Smoothly blend the end of each track into the next">Crossfade</button>
             </div>
           </div>
         </div>
@@ -1330,6 +1704,10 @@ input[type=range]::-webkit-slider-thumb{
 
     <!-- Controls -->
     <div class="ctrl-col">
+      <!-- Playback speed -->
+      <button class="cbtn speed-btn" id="speedBtn" onclick="cycleSpeed()" title="Playback speed">
+        <span id="speedLbl">1×</span>
+      </button>
       <!-- Shuffle -->
       <button class="cbtn" id="shufBtn" onclick="toggleShuffle()" title="Shuffle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1357,6 +1735,11 @@ input[type=range]::-webkit-slider-thumb{
           <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>
         </svg>
       </button>
+      <!-- Sleep timer -->
+      <button class="cbtn sleep-btn" id="sleepBtn" onclick="cycleSleep()" title="Sleep timer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        <span class="sleep-lbl" id="sleepLbl"></span>
+      </button>
     </div>
 
     <!-- Volume -->
@@ -1376,6 +1759,12 @@ input[type=range]::-webkit-slider-thumb{
 <div class="video-overlay" id="videoOverlay">
   <div class="video-header">
     <div class="video-title" id="videoOverlayTitle">Loading…</div>
+    <button class="video-close" onclick="shareVideo()" title="Share" style="margin-right:8px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+    </button>
+    <button class="video-close" id="pipBtn" onclick="togglePiP()" title="Picture-in-Picture" style="margin-right:8px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 3H3a2 2 0 00-2 2v14a2 2 0 002 2h18a2 2 0 002-2V5a2 2 0 00-2-2z"/><rect x="12" y="12" width="8" height="6" rx="1" fill="currentColor" stroke="none"/></svg>
+    </button>
     <button class="video-close" onclick="closeVideoOverlay()" title="Close">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -1394,6 +1783,8 @@ input[type=range]::-webkit-slider-thumb{
     <video id="overlayVideoEl" controls preload="auto"
            onended="onOverlayVideoEnded()">
     </video>
+    <!-- YouTube embed player (shown instead of the video element for YT content) -->
+    <iframe id="ytFrame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
     <!-- Tap-to-play fallback if autoplay is blocked -->
     <div class="video-tap-play" id="videoTapPlay" onclick="tapToPlay()">
       <div class="video-tap-btn">
@@ -1409,7 +1800,7 @@ input[type=range]::-webkit-slider-thumb{
 // ════════════════════════════════════════
 //  CONSTANTS & STATE
 // ════════════════════════════════════════
-const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile';
+const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/youtube.readonly';
 const DISC   = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 
 // ── Shared music folder — all users land here ──
@@ -1419,7 +1810,7 @@ const SHARED_FOLDER_ID  = '1dNeCrw1sXK0Zx0LOUdEeDdxuq1qclPfI';
 const STORAGE_FOLDER_ID = '1-BpvON_8U9ynRP-qv2Ds1HUlwv9-AhTt';
 const METADATA_FILENAME = 'cloudplayer-metadata.json';
 const DB_NAME = 'CloudPlayerCache';
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 
 let CLIENT_ID    = localStorage.getItem('dp_cid') || '745322669687-dhrv25ih7g2ckomq41v7bvghu0shsrvv.apps.googleusercontent.com';
 let accessToken  = null, tokenClient = null;
@@ -1440,6 +1831,25 @@ let isPreloading     = false;  // bulk preload in progress
 let nextPreloadAbort = null;   // AbortController for next-track preload
 let cloudMetaFileId  = null;   // Drive file ID of metadata JSON
 let autoLoginInProgress = false; // true while attempting silent auto-login
+
+// ── Content source: 'drive' | 'youtube' | 'vault' ──
+let curSource   = 'drive';
+let driveFilesSnapshot = null;  // cached drive listing while browsing other sources
+
+// ── YouTube state ──
+let ytView           = 'channels';  // 'channels' | 'videos'
+let ytChannels       = [];          // [{id,title,thumb,subscribed}]
+let ytVideos         = [];          // [{id,title,thumb,published}]
+let ytCurrentChannel = null;        // {id,title}
+let ytLoading        = false;
+
+// ── Vault state ──
+let vaultPersistAsked = false;
+
+// ── Playlists state ──
+let plView         = 'lists';   // 'lists' | 'tracks'
+let curPlaylist    = null;      // {id,name,tracks:[...]}
+let plPendingTrack = null;      // track waiting in the add-to-playlist picker
 
 const audioEl = document.getElementById('audioEl');
 const videoEl = document.getElementById('videoEl');
@@ -1607,6 +2017,7 @@ function checkRedirectToken() {
 }
 
 async function handleManualToken(token, expiresIn) {
+  guestMode = false;
   accessToken = token;
   const lifetime = expiresIn * 1000;
   tokenExpiry = Date.now() + lifetime;
@@ -1876,6 +2287,7 @@ async function onToken(resp) {
     setErr('Sign-in failed: ' + resp.error); btnIdle(); return;
   }
   autoLoginInProgress = false;
+  guestMode    = false;
   accessToken  = resp.access_token;
   // Google tokens last 3600s; store expiry with 60s safety margin
   const lifetime = (resp.expires_in || 3600) * 1000;
@@ -1910,6 +2322,7 @@ async function onToken(resp) {
 }
 
 function signOut() {
+  guestMode = false;
   cancelPreload();
   if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
   isRefreshing = false; refreshQueue = []; tokenExpiry = 0;
@@ -1928,6 +2341,19 @@ function signOut() {
   allFiles = []; filtered = []; curIdx = -1;
   folderStack = [{ id: SHARED_FOLDER_ID, name: 'Shared Music' }];
   cloudMetaFileId = null;
+  // Reset content source to Drive so next sign-in starts clean
+  curSource = 'drive'; ytView = 'channels'; ytChannels = []; ytVideos = []; ytCurrentChannel = null;
+  plView = 'lists'; curPlaylist = null;
+  const tD = document.getElementById('srcTabDrive'), tY = document.getElementById('srcTabYt'), tV = document.getElementById('srcTabVault'), tP = document.getElementById('srcTabPl');
+  if (tD) tD.classList.add('on');
+  if (tY) tY.classList.remove('on', 'yt');
+  if (tV) tV.classList.remove('on', 'vault');
+  if (tP) tP.classList.remove('on', 'pl');
+  const vb = document.getElementById('vaultBar');
+  if (vb) vb.style.display = 'none';
+  const fb = document.querySelector('.fbar');
+  if (fb) fb.style.display = 'flex';
+  renderBC();
   stopMedia();
   document.getElementById('screenApp').classList.add('hidden');
   document.getElementById('screenSignin').classList.remove('hidden');
@@ -1978,6 +2404,12 @@ function openCacheDB() {
       }
       if (!db.objectStoreNames.contains('metadata')) {
         db.createObjectStore('metadata', { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains('vaultMeta')) {
+        db.createObjectStore('vaultMeta', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('playlists')) {
+        db.createObjectStore('playlists', { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -2451,9 +2883,21 @@ async function prioritizeFolderCache(folderFiles) {
 }
 
 function applyFilter() {
+  if (curSource === 'youtube') {
+    if (ytView === 'videos') renderYtVideos();
+    else renderYtChannels();
+    return;
+  }
   const q = document.getElementById('sq').value.toLowerCase();
+  if (curSource === 'playlists') {
+    if (plView === 'lists') { loadPlaylists(); return; }
+    filtered = allFiles.filter(f => f.name.toLowerCase().includes(q));
+    renderList();
+    return;
+  }
   filtered = allFiles.filter(f => {
     const ok = f.name.toLowerCase().includes(q);
+    if (curFilter === 'fav') return ok && f.mimeType !== 'application/vnd.google-apps.folder' && favIds.has(f.id);
     if (f.mimeType === 'application/vnd.google-apps.folder') return ok;
     if (curFilter === 'audio') return ok && f.mimeType.includes('audio/');
     if (curFilter === 'video') return ok && f.mimeType.includes('video/');
@@ -2470,9 +2914,14 @@ function setFilter(el, v) {
 function renderList() {
   const el = document.getElementById('flist');
   if (!filtered.length) {
+    const msg = curSource === 'vault'
+      ? 'Your Vault is empty.<br>Click <b>+ Add</b> above or drag &amp; drop<br>music / videos anywhere on this page.'
+      : curSource === 'playlists'
+      ? 'This playlist is empty.<br>Use the <b>+</b> button on any track<br>in Drive or your Vault to add it here.'
+      : 'No media files found';
     el.innerHTML = `<div class="empty">
       <div class="empty-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
-      <div class="empty-txt">No media files found</div></div>`;
+      <div class="empty-txt">${msg}</div></div>`;
     return;
   }
   el.innerHTML = filtered.map((f, i) => {
@@ -2485,13 +2934,40 @@ function renderList() {
       ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`
       : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`;
     const ext  = isDir ? 'Folder' : f.name.split('.').pop().toUpperCase();
-    const dur  = f.videoMediaMetadata?.durationMillis ? fmtMs(+f.videoMediaMetadata.durationMillis) : '';
+    const dur  = f.vault
+      ? (f.size ? fmtSize(f.size) : '')
+      : (f.videoMediaMetadata?.durationMillis ? fmtMs(+f.videoMediaMetadata.durationMillis) : '');
     const act  = !isDir && i === curIdx ? ' now' : '';
     const oc   = isDir ? `openFolder('${esc2(f.id)}','${esc2(f.name)}')` : `playAt(${i})`;
+    const del  = f.vault
+      ? `<button class="fdel" onclick="event.stopPropagation();vaultDelete('${esc2(f.id)}')" title="Delete from Vault">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        </button>`
+      : '';
+    const isFav = favIds.has(f.id);
+    const fav  = isDir ? '' :
+      `<button class="ffav${isFav ? ' on' : ''}" onclick="event.stopPropagation();toggleFav('${esc2(f.id)}')" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
+        <svg viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+      </button>`;
+    const inPl = curSource === 'playlists' && plView === 'tracks';
+    const addPl = (isDir || inPl) ? '' :
+      `<button class="fadd" onclick="event.stopPropagation();openPlPicker('${esc2(f.id)}')" title="Add to playlist">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>`;
+    const plBtns = inPl ? `
+      <button class="pmov" onclick="event.stopPropagation();plMove('${esc2(f.id)}',-1)" title="Move up">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>
+      </button>
+      <button class="pmov" onclick="event.stopPropagation();plMove('${esc2(f.id)}',1)" title="Move down">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <button class="fdel" onclick="event.stopPropagation();plRemoveTrack('${esc2(f.id)}')" title="Remove from playlist">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>` : '';
     return `<div class="fitem${act}" data-i="${i}" onclick="${oc}">
       <div class="ficon ${cls}">${icon}</div>
-      <div class="fmeta"><div class="fname">${esc(f.name)}</div><div class="ftype">${ext}</div></div>
-      ${dur ? `<div class="fdur">${dur}</div>` : ''}
+      <div class="fmeta"><div class="fname">${esc(f.name)}</div><div class="ftype">${ext}${f.vault ? ' · VAULT' : ''}</div></div>
+      ${dur ? `<div class="fdur">${dur}</div>` : ''}${fav}${addPl}${plBtns}${inPl ? '' : del}
     </div>`;
   }).join('');
   renderQueue();
@@ -2539,6 +3015,716 @@ function renderBC() {
 }
 
 // ════════════════════════════════════════
+//  CONTENT SOURCES — Drive / YouTube / Vault
+// ════════════════════════════════════════
+
+function setSource(src) {
+  if (src === curSource) return;
+  if (!accessToken && src !== 'vault' && src !== 'playlists') {
+    toast('Sign in to browse ' + (src === 'drive' ? 'Google Drive' : 'YouTube'), true);
+    return;
+  }
+  curSource = src;
+
+  // Tab highlighting
+  const tabD = document.getElementById('srcTabDrive');
+  const tabY = document.getElementById('srcTabYt');
+  const tabV = document.getElementById('srcTabVault');
+  const tabP = document.getElementById('srcTabPl');
+  tabD.classList.toggle('on', src === 'drive');
+  tabY.classList.toggle('on', src === 'youtube');
+  tabY.classList.toggle('yt', src === 'youtube');
+  tabV.classList.toggle('on', src === 'vault');
+  tabV.classList.toggle('vault', src === 'vault');
+  if (tabP) { tabP.classList.toggle('on', src === 'playlists'); tabP.classList.toggle('pl', src === 'playlists'); }
+
+  // Per-source chrome
+  const fbar = document.querySelector('.fbar');
+  const sq   = document.getElementById('sq');
+  document.getElementById('vaultBar').style.display = src === 'vault' ? 'block' : 'none';
+  if (fbar) fbar.style.display = (src === 'youtube' || src === 'playlists') ? 'none' : 'flex';
+  sq.placeholder = src === 'youtube' ? 'Search channels & videos…' : 'Search files…';
+  sq.value = '';
+
+  if (src === 'drive') {
+    renderBC();
+    loadDrive();
+  } else if (src === 'vault') {
+    document.getElementById('bc').innerHTML = '<span class="bci last">My Vault</span>';
+    loadVault();
+    updateVaultMeter();
+  } else if (src === 'playlists') {
+    plView = 'lists'; curPlaylist = null;
+    renderPlBC();
+    loadPlaylists();
+  } else {
+    renderYtBC();
+    loadYouTube();
+  }
+}
+
+function refreshSource() {
+  if (curSource === 'drive') loadDrive();
+  else if (curSource === 'vault') { loadVault(); updateVaultMeter(); }
+  else if (curSource === 'playlists') {
+    if (plView === 'tracks' && curPlaylist) openPlaylist(curPlaylist.id);
+    else loadPlaylists();
+  }
+  else if (ytView === 'videos' && ytCurrentChannel) openYtChannel(ytCurrentChannel.id, ytCurrentChannel.title, true);
+  else loadYouTube(true);
+}
+
+// ════════════════════════════════════════
+//  PERSONAL VAULT — IndexedDB file storage
+// ════════════════════════════════════════
+
+function vaultGetAllMeta() {
+  return openCacheDB().then(db => new Promise((resolve) => {
+    const tx = db.transaction('vaultMeta', 'readonly');
+    const req = tx.objectStore('vaultMeta').getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror   = () => resolve([]);
+  })).catch(() => []);
+}
+
+function vaultPutMeta(meta) {
+  return openCacheDB().then(db => new Promise((resolve) => {
+    const tx = db.transaction('vaultMeta', 'readwrite');
+    tx.objectStore('vaultMeta').put(meta);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror    = () => resolve(false);
+  })).catch(() => false);
+}
+
+function vaultDeleteMeta(id) {
+  return openCacheDB().then(db => new Promise((resolve) => {
+    const tx = db.transaction(['vaultMeta', 'audioBlobs'], 'readwrite');
+    tx.objectStore('vaultMeta').delete(id);
+    tx.objectStore('audioBlobs').delete(id);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror    = () => resolve(false);
+  })).catch(() => false);
+}
+
+async function loadVault() {
+  const meta = await vaultGetAllMeta();
+  meta.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  allFiles = meta.map(m => ({ id: m.id, name: m.name, mimeType: m.mimeType, size: m.size, vault: true }));
+  applyFilter();
+  const n = allFiles.length;
+  if (curSource === 'vault') {
+    toast(n ? `${n} file${n !== 1 ? 's' : ''} in your Vault` : 'Vault is empty — add some files');
+  }
+}
+
+/** Import files (from picker or drag-drop) into the vault */
+async function vaultImportFiles(fileList) {
+  const files = Array.from(fileList || []).filter(f =>
+    f.type.startsWith('audio/') || f.type.startsWith('video/'));
+  const skipped = (fileList?.length || 0) - files.length;
+  if (skipped > 0) toast(`${skipped} file${skipped !== 1 ? 's' : ''} skipped — audio & video only`, true);
+  if (!files.length) return;
+
+  // Ask the browser to protect our storage from eviction (once)
+  if (!vaultPersistAsked && navigator.storage?.persist) {
+    vaultPersistAsked = true;
+    navigator.storage.persist().catch(() => {});
+  }
+
+  let done = 0;
+  for (const f of files) {
+    const id = 'vault_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '_' + Math.random().toString(36).slice(2));
+    toast(`Importing ${++done}/${files.length}: ${f.name}`);
+    const okBlob = await setCachedBlob(id, f, f.name, f.type);
+    if (!okBlob) { toast('Storage full — could not save ' + f.name, true); break; }
+    await vaultPutMeta({ id, name: f.name, mimeType: f.type, size: f.size, addedAt: Date.now() });
+  }
+  toast(`✓ ${done} file${done !== 1 ? 's' : ''} added to your Vault`);
+
+  // Jump to the vault so the user sees their new files
+  if (curSource !== 'vault') setSource('vault');
+  else { loadVault(); updateVaultMeter(); }
+}
+
+async function vaultDelete(id) {
+  const f = allFiles.find(x => x.id === id);
+  await vaultDeleteMeta(id);
+  if (curIdx >= 0 && filtered[curIdx]?.id === id) stopMedia();
+  toast((f ? f.name : 'File') + ' removed from Vault');
+  loadVault();
+  updateVaultMeter();
+}
+
+async function updateVaultMeter() {
+  const usageEl = document.getElementById('vaultUsage');
+  const fillEl  = document.getElementById('vaultMeterFill');
+  if (!usageEl || !fillEl) return;
+  const meta = await vaultGetAllMeta();
+  const vaultBytes = meta.reduce((s, m) => s + (m.size || 0), 0);
+  let quotaTxt = '';
+  try {
+    if (navigator.storage?.estimate) {
+      const est = await navigator.storage.estimate();
+      if (est.quota) {
+        fillEl.style.width = Math.min(100, (est.usage / est.quota) * 100).toFixed(1) + '%';
+        quotaTxt = ' · ' + fmtSize(est.quota - est.usage) + ' free';
+      }
+    }
+  } catch (_) {}
+  usageEl.innerHTML = `<b>${meta.length}</b> file${meta.length !== 1 ? 's' : ''} · <b>${fmtSize(vaultBytes)}</b>${esc(quotaTxt)}`;
+}
+
+// ── Drag & drop anywhere to import ──
+let dragDepth = 0;
+window.addEventListener('dragenter', (e) => {
+  if (!e.dataTransfer?.types?.includes('Files')) return;
+  e.preventDefault();
+  dragDepth++;
+  document.getElementById('dropOverlay').classList.add('show');
+});
+window.addEventListener('dragover', (e) => { e.preventDefault(); });
+window.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  if (--dragDepth <= 0) {
+    dragDepth = 0;
+    document.getElementById('dropOverlay').classList.remove('show');
+  }
+});
+window.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  document.getElementById('dropOverlay').classList.remove('show');
+  if (e.dataTransfer?.files?.length) vaultImportFiles(e.dataTransfer.files);
+});
+
+// ════════════════════════════════════════
+//  VAULT BACKUP — File System Access API
+// ════════════════════════════════════════
+
+async function vaultExport() {
+  const meta = await vaultGetAllMeta();
+  if (!meta.length) { toast('Vault is empty — nothing to back up', true); return; }
+  const status = document.getElementById('preloadStatus');
+
+  if (window.showDirectoryPicker) {
+    let dir;
+    try { dir = await showDirectoryPicker({ mode: 'readwrite' }); }
+    catch (e) { if (e.name !== 'AbortError') toast('Could not open folder', true); return; }
+
+    let done = 0, failed = 0;
+    const usedNames = new Set();
+    for (const m of meta) {
+      const blob = await getCachedBlob(m.id);
+      if (!blob) { failed++; continue; }
+      let safe = m.name.replace(/[\\/:*?"<>|]/g, '_');
+      if (usedNames.has(safe)) safe = safe.replace(/(\.[^.]+)?$/, '_' + (done + failed) + '$1');
+      usedNames.add(safe);
+      try {
+        const fh = await dir.getFileHandle(safe, { create: true });
+        const w  = await fh.createWritable();
+        await w.write(blob);
+        await w.close();
+        done++;
+        if (status) status.textContent = `Backing up: ${done}/${meta.length}`;
+      } catch (e) { console.warn('[Backup]', m.name, e); failed++; }
+    }
+    if (status) { status.textContent = ''; }
+    toast(`✓ Backed up ${done} file${done !== 1 ? 's' : ''}` + (failed ? ` — ${failed} failed` : ''), failed > 0);
+    return;
+  }
+
+  // Fallback (no File System Access API): download files one by one
+  toast('Folder access not supported here — downloading files instead');
+  let n = 0;
+  for (const m of meta) {
+    const blob = await getCachedBlob(m.id);
+    if (!blob) continue;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = m.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+    n++;
+    if (status) status.textContent = `Downloading: ${n}/${meta.length}`;
+    await new Promise(r => setTimeout(r, 500));
+  }
+  if (status) status.textContent = '';
+  toast(`✓ Exported ${n} file${n !== 1 ? 's' : ''}`);
+}
+
+// ════════════════════════════════════════
+//  PLAYLISTS — ordered lists across Drive + Vault
+// ════════════════════════════════════════
+
+function plGetAll() {
+  return openCacheDB().then(db => new Promise((resolve) => {
+    const tx = db.transaction('playlists', 'readonly');
+    const req = tx.objectStore('playlists').getAll();
+    req.onsuccess = () => resolve((req.result || []).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)));
+    req.onerror   = () => resolve([]);
+  })).catch(() => []);
+}
+
+function plGet(id) {
+  return openCacheDB().then(db => new Promise((resolve) => {
+    const tx = db.transaction('playlists', 'readonly');
+    const req = tx.objectStore('playlists').get(id);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror   = () => resolve(null);
+  })).catch(() => null);
+}
+
+function plPut(pl) {
+  pl.updatedAt = Date.now();
+  return openCacheDB().then(db => new Promise((resolve) => {
+    const tx = db.transaction('playlists', 'readwrite');
+    tx.objectStore('playlists').put(pl);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror    = () => resolve(false);
+  })).catch(() => false);
+}
+
+function plDeleteDB(id) {
+  return openCacheDB().then(db => new Promise((resolve) => {
+    const tx = db.transaction('playlists', 'readwrite');
+    tx.objectStore('playlists').delete(id);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror    = () => resolve(false);
+  })).catch(() => false);
+}
+
+function plNewId() {
+  return 'pl_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '_' + Math.random().toString(36).slice(2));
+}
+
+/** Minimal track descriptor stored inside a playlist */
+function plTrackDescriptor(f) {
+  return { id: f.id, name: f.name, mimeType: f.mimeType, size: f.size || 0, vault: !!(f.vault || String(f.id).startsWith('vault_')) };
+}
+
+function renderPlBC() {
+  const bc = document.getElementById('bc');
+  if (plView === 'tracks' && curPlaylist) {
+    bc.innerHTML = `<span class="bci" onclick="showPlaylists()">Playlists</span><span class="bcsep"> › </span><span class="bci last">${esc(curPlaylist.name)}</span>`;
+  } else {
+    bc.innerHTML = '<span class="bci last">Playlists</span>';
+  }
+}
+
+function showPlaylists() {
+  plView = 'lists'; curPlaylist = null;
+  renderPlBC();
+  loadPlaylists();
+}
+
+async function loadPlaylists() {
+  const lists = await plGetAll();
+  if (curSource !== 'playlists' || plView !== 'lists') return;
+  const q = document.getElementById('sq').value.toLowerCase();
+  const shown = lists.filter(p => p.name.toLowerCase().includes(q));
+  const el = document.getElementById('flist');
+
+  const addRow = `
+    <div class="pl-add">
+      <input id="plNewInp" type="text" placeholder="New playlist name…" onkeydown="if(event.key==='Enter')createPlaylist()"/>
+      <button onclick="createPlaylist()">Create</button>
+    </div>`;
+
+  if (!shown.length) {
+    el.innerHTML = addRow + `<div class="yt-note">No playlists yet.<br>Create one above, or use the <b>+</b> button on any track<br>in Drive or your Vault.</div>`;
+    return;
+  }
+
+  el.innerHTML = addRow + shown.map(p => `
+    <div class="fitem" onclick="openPlaylist('${esc2(p.id)}')">
+      <div class="ficon fd">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="6" x2="13" y2="6"/><line x1="3" y1="12" x2="13" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/><polygon points="15 15 21 18 15 21 15 15" fill="currentColor" stroke="none"/></svg>
+      </div>
+      <div class="fmeta">
+        <div class="fname">${esc(p.name)}</div>
+        <div class="ftype">${p.tracks.length} track${p.tracks.length !== 1 ? 's' : ''}</div>
+      </div>
+      <button class="pl-play" onclick="event.stopPropagation();plPlayAll('${esc2(p.id)}')" title="Play all">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="fdel" onclick="event.stopPropagation();deletePlaylist('${esc2(p.id)}','${esc2(p.name)}')" title="Delete playlist">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+      </button>
+    </div>`).join('');
+}
+
+async function createPlaylist() {
+  const inp = document.getElementById('plNewInp');
+  const name = (inp?.value || '').trim();
+  if (!name) { toast('Give the playlist a name first', true); return; }
+  await plPut({ id: plNewId(), name, tracks: [], createdAt: Date.now() });
+  if (inp) inp.value = '';
+  toast('✓ Playlist "' + name + '" created');
+  loadPlaylists();
+}
+
+async function deletePlaylist(id, name) {
+  await plDeleteDB(id);
+  toast('Playlist "' + name + '" deleted');
+  if (curPlaylist?.id === id) { plView = 'lists'; curPlaylist = null; renderPlBC(); }
+  loadPlaylists();
+}
+
+async function openPlaylist(id) {
+  const pl = await plGet(id);
+  if (!pl) { toast('Playlist not found', true); loadPlaylists(); return; }
+  curPlaylist = pl;
+  plView = 'tracks';
+  renderPlBC();
+  const playingId = filtered[curIdx]?.id;
+  allFiles = pl.tracks.map(t => ({ ...t }));
+  applyFilter();
+  resyncCurIdx(playingId);
+  renderList();
+}
+
+async function plPlayAll(id) {
+  if (curSource !== 'playlists') return;
+  await openPlaylist(id);
+  const first = filtered.findIndex(f => !f.mimeType.includes('folder'));
+  if (first >= 0) playAt(first);
+  else toast('This playlist is empty', true);
+}
+
+/** Move a track up/down inside the open playlist */
+async function plMove(trackId, delta) {
+  if (!curPlaylist) return;
+  const i = curPlaylist.tracks.findIndex(t => t.id === trackId);
+  const j = i + delta;
+  if (i < 0 || j < 0 || j >= curPlaylist.tracks.length) return;
+  [curPlaylist.tracks[i], curPlaylist.tracks[j]] = [curPlaylist.tracks[j], curPlaylist.tracks[i]];
+  await plPut(curPlaylist);
+  const playingId = filtered[curIdx]?.id;
+  allFiles = curPlaylist.tracks.map(t => ({ ...t }));
+  applyFilter();
+  resyncCurIdx(playingId);
+  renderList();
+}
+
+async function plRemoveTrack(trackId) {
+  if (!curPlaylist) return;
+  curPlaylist.tracks = curPlaylist.tracks.filter(t => t.id !== trackId);
+  await plPut(curPlaylist);
+  toast('Removed from playlist');
+  const playingId = filtered[curIdx]?.id;
+  allFiles = curPlaylist.tracks.map(t => ({ ...t }));
+  applyFilter();
+  resyncCurIdx(playingId);
+  renderList();
+}
+
+/** Keep the now-playing highlight on the right row after list mutations */
+function resyncCurIdx(playingId) {
+  if (!playingId) return;
+  curIdx = filtered.findIndex(f => f.id === playingId);
+}
+
+// ── Add-to-playlist picker ──
+
+async function openPlPicker(fileId) {
+  const f = allFiles.find(x => x.id === fileId);
+  if (!f) return;
+  plPendingTrack = plTrackDescriptor(f);
+  document.getElementById('plPickTrack').textContent = f.name;
+  const lists = await plGetAll();
+  const listEl = document.getElementById('plPickList');
+  listEl.innerHTML = lists.length
+    ? lists.map(p => `
+        <div class="plpick-item" onclick="plPickChoose('${esc2(p.id)}')">
+          ${esc(p.name)}<span>${p.tracks.length} track${p.tracks.length !== 1 ? 's' : ''}</span>
+        </div>`).join('')
+    : '<div class="plpick-empty">No playlists yet — create one below</div>';
+  document.getElementById('plPickOverlay').classList.add('show');
+}
+
+function closePlPicker() {
+  document.getElementById('plPickOverlay').classList.remove('show');
+  plPendingTrack = null;
+}
+
+async function plPickChoose(plId) {
+  if (!plPendingTrack) { closePlPicker(); return; }
+  const pl = await plGet(plId);
+  if (!pl) { closePlPicker(); return; }
+  if (pl.tracks.some(t => t.id === plPendingTrack.id)) {
+    toast('Already in "' + pl.name + '"');
+  } else {
+    pl.tracks.push(plPendingTrack);
+    await plPut(pl);
+    toast('✓ Added to "' + pl.name + '"');
+  }
+  closePlPicker();
+}
+
+async function plPickCreate() {
+  const inp = document.getElementById('plPickNewInp');
+  const name = (inp?.value || '').trim();
+  if (!name) { toast('Give the playlist a name first', true); return; }
+  const pl = { id: plNewId(), name, tracks: plPendingTrack ? [plPendingTrack] : [], createdAt: Date.now() };
+  await plPut(pl);
+  if (inp) inp.value = '';
+  toast('✓ "' + name + '" created' + (plPendingTrack ? ' with 1 track' : ''));
+  closePlPicker();
+}
+
+// ════════════════════════════════════════
+//  YOUTUBE — subscribed & custom channels
+// ════════════════════════════════════════
+
+const YT_API = 'https://www.googleapis.com/youtube/v3/';
+
+async function ytFetch(path, params) {
+  const url = new URL(YT_API + path);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const r = await authFetch(url.toString());
+  if (!r.ok) {
+    const body = await r.text().catch(() => '');
+    const err = new Error('YouTube API ' + r.status);
+    err.status = r.status;
+    err.body = body;
+    throw err;
+  }
+  return r.json();
+}
+
+function ytSavedChannels() {
+  try { return JSON.parse(localStorage.getItem('dp_yt_channels') || '[]'); }
+  catch { return []; }
+}
+function ytSaveChannels(list) {
+  localStorage.setItem('dp_yt_channels', JSON.stringify(list));
+}
+
+function renderYtBC() {
+  const bc = document.getElementById('bc');
+  if (ytView === 'videos' && ytCurrentChannel) {
+    bc.innerHTML = `<span class="bci" onclick="showYtChannels()">YouTube</span><span class="bcsep"> › </span><span class="bci last">${esc(ytCurrentChannel.title)}</span>`;
+  } else {
+    bc.innerHTML = '<span class="bci last">YouTube</span>';
+  }
+}
+
+function ytErrorNote(e) {
+  if (e && (e.status === 403 || e.status === 401)) {
+    if ((e.body || '').includes('insufficient')) {
+      return 'This session was signed in before YouTube support was added.<br>Sign out and sign back in to grant YouTube access.';
+    }
+    return 'YouTube API not reachable (HTTP ' + e.status + ').<br>Make sure <b>YouTube Data API v3</b> is enabled for this app\'s Google Cloud project.';
+  }
+  return 'Could not load YouTube data — check your connection and try again.';
+}
+
+async function loadYouTube(force) {
+  ytView = 'channels';
+  renderYtBC();
+  if (ytChannels.length && !force) { renderYtChannels(); return; }
+
+  const el = document.getElementById('flist');
+  el.innerHTML = '<div class="yt-note">Loading your channels…</div>';
+  ytLoading = true;
+
+  const saved = ytSavedChannels().map(c => ({ ...c, subscribed: false }));
+  let subs = [];
+  let subsErr = null;
+  try {
+    let pageToken = null, pages = 0;
+    do {
+      const params = { part: 'snippet', mine: 'true', maxResults: '50', order: 'alphabetical' };
+      if (pageToken) params.pageToken = pageToken;
+      const res = await ytFetch('subscriptions', params);
+      subs = subs.concat((res.items || []).map(it => ({
+        id: it.snippet?.resourceId?.channelId,
+        title: it.snippet?.title || 'Channel',
+        thumb: it.snippet?.thumbnails?.default?.url || '',
+        subscribed: true
+      })));
+      pageToken = res.nextPageToken;
+    } while (pageToken && ++pages < 4);
+  } catch (e) {
+    console.warn('[YouTube] subscriptions failed:', e);
+    subsErr = e;
+  }
+  ytLoading = false;
+
+  // Merge: saved channels first, then subscriptions (dedup by id)
+  const seen = new Set();
+  ytChannels = [...saved, ...subs].filter(c => c.id && !seen.has(c.id) && seen.add(c.id));
+
+  renderYtChannels(subsErr);
+}
+
+function renderYtChannels(subsErr) {
+  if (curSource !== 'youtube' || ytView !== 'channels') return;
+  const q = document.getElementById('sq').value.toLowerCase();
+  const list = ytChannels.filter(c => c.title.toLowerCase().includes(q));
+  const el = document.getElementById('flist');
+
+  const addRow = `
+    <div class="yt-add">
+      <input id="ytAddInp" type="text" placeholder="Add channel — @handle or URL" onkeydown="if(event.key==='Enter')addYtChannel()"/>
+      <button onclick="addYtChannel()">Add</button>
+    </div>`;
+
+  const errRow = subsErr ? `<div class="yt-note">${ytErrorNote(subsErr)}</div>` : '';
+
+  if (!list.length) {
+    el.innerHTML = addRow + errRow + (subsErr ? '' :
+      `<div class="yt-note">No channels yet.<br>Add one above, or subscribe to channels on YouTube with this Google account.</div>`);
+    return;
+  }
+
+  el.innerHTML = addRow + errRow + list.map(c => `
+    <div class="yt-item" onclick="openYtChannel('${esc2(c.id)}','${esc2(c.title)}')">
+      ${c.thumb ? `<img class="yt-thumb" src="${esc(c.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer"/>` : '<div class="yt-thumb"></div>'}
+      <div class="yt-meta">
+        <div class="yt-name">${esc(c.title)}</div>
+        <div class="yt-sub">${c.subscribed ? 'Subscribed' : 'Added by you'}</div>
+      </div>
+      ${c.subscribed ? '' : `<button class="fdel" onclick="event.stopPropagation();removeYtChannel('${esc2(c.id)}')" title="Remove">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`}
+    </div>`).join('');
+}
+
+function showYtChannels() {
+  ytView = 'channels';
+  renderYtBC();
+  renderYtChannels();
+}
+
+/** Add a channel by @handle, channel URL, or raw channel ID */
+async function addYtChannel() {
+  const inp = document.getElementById('ytAddInp');
+  let v = (inp?.value || '').trim();
+  if (!v) return;
+
+  // Extract handle or ID from a pasted URL
+  const urlHandle = v.match(/youtube\.com\/(@[\w.\-]+)/i);
+  const urlChan   = v.match(/youtube\.com\/channel\/(UC[\w\-]+)/i);
+  if (urlHandle) v = urlHandle[1];
+  else if (urlChan) v = urlChan[1];
+
+  toast('Looking up channel…');
+  try {
+    const params = { part: 'snippet' };
+    if (/^UC[\w\-]{20,}$/.test(v)) params.id = v;
+    else params.forHandle = v.startsWith('@') ? v : '@' + v;
+    const res = await ytFetch('channels', params);
+    const it = (res.items || [])[0];
+    if (!it) { toast('Channel not found', true); return; }
+
+    const chan = {
+      id: it.id,
+      title: it.snippet?.title || v,
+      thumb: it.snippet?.thumbnails?.default?.url || ''
+    };
+    const saved = ytSavedChannels();
+    if (!saved.some(c => c.id === chan.id)) {
+      saved.unshift(chan);
+      ytSaveChannels(saved);
+    }
+    if (!ytChannels.some(c => c.id === chan.id)) {
+      ytChannels.unshift({ ...chan, subscribed: false });
+    }
+    if (inp) inp.value = '';
+    toast('✓ Added ' + chan.title);
+    renderYtChannels();
+  } catch (e) {
+    console.warn('[YouTube] add channel failed:', e);
+    toast('Could not add channel — see YouTube tab for details', true);
+    renderYtChannels(e);
+  }
+}
+
+function removeYtChannel(id) {
+  ytSaveChannels(ytSavedChannels().filter(c => c.id !== id));
+  ytChannels = ytChannels.filter(c => !(c.id === id && !c.subscribed));
+  renderYtChannels();
+}
+
+/** Open a channel: list its uploads (newest first) */
+async function openYtChannel(channelId, title, force) {
+  ytCurrentChannel = { id: channelId, title };
+  ytView = 'videos';
+  renderYtBC();
+  document.getElementById('sq').value = '';
+
+  const el = document.getElementById('flist');
+  el.innerHTML = '<div class="yt-note">Loading videos…</div>';
+
+  // A channel's uploads playlist ID is its channel ID with UC → UU
+  const uploadsId = 'UU' + channelId.slice(2);
+  try {
+    let vids = [], pageToken = null, pages = 0;
+    do {
+      const params = { part: 'snippet', playlistId: uploadsId, maxResults: '50' };
+      if (pageToken) params.pageToken = pageToken;
+      const res = await ytFetch('playlistItems', params);
+      vids = vids.concat((res.items || []).map(it => ({
+        id: it.snippet?.resourceId?.videoId,
+        title: it.snippet?.title || 'Video',
+        thumb: it.snippet?.thumbnails?.medium?.url || it.snippet?.thumbnails?.default?.url || '',
+        published: it.snippet?.publishedAt || ''
+      })).filter(x => x.id));
+      pageToken = res.nextPageToken;
+    } while (pageToken && ++pages < 2);
+    ytVideos = vids;
+    renderYtVideos();
+  } catch (e) {
+    console.warn('[YouTube] uploads failed:', e);
+    el.innerHTML = `<div class="yt-note">${ytErrorNote(e)}</div>`;
+  }
+}
+
+function renderYtVideos() {
+  if (curSource !== 'youtube' || ytView !== 'videos') return;
+  const q = document.getElementById('sq').value.toLowerCase();
+  const list = ytVideos.filter(v => v.title.toLowerCase().includes(q));
+  const el = document.getElementById('flist');
+  if (!list.length) {
+    el.innerHTML = '<div class="yt-note">No videos found</div>';
+    return;
+  }
+  el.innerHTML = list.map(v => `
+    <div class="yt-item" onclick="playYtVideo('${esc2(v.id)}','${esc2(v.title)}')">
+      ${v.thumb ? `<img class="yt-thumb vid" src="${esc(v.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer"/>` : '<div class="yt-thumb vid"></div>'}
+      <div class="yt-meta">
+        <div class="yt-name">${esc(v.title)}</div>
+        <div class="yt-sub">${v.published ? esc(v.published.slice(0, 10)) : ''} <span class="yt-badge">YT</span></div>
+      </div>
+    </div>`).join('');
+}
+
+/** Play a YouTube video in the overlay via the official embed player */
+function playYtVideo(videoId, title) {
+  curYtVideo = { id: videoId, title };
+  const overlay = document.getElementById('videoOverlay');
+  const frame   = document.getElementById('ytFrame');
+  const ovVideo = document.getElementById('overlayVideoEl');
+  const loadPanel = document.getElementById('videoLoadingPanel');
+
+  // Stop any local media so audio doesn't double up
+  stopMedia();
+
+  document.getElementById('videoOverlayTitle').textContent = title;
+  ovVideo.style.display = 'none';
+  loadPanel.classList.add('hidden');
+  document.getElementById('videoTapPlay').classList.remove('show');
+
+  frame.src = 'https://www.youtube.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&rel=0&modestbranding=1';
+  frame.style.display = 'block';
+
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  if (window.innerWidth <= 768) closeSidebar();
+}
+
+// ════════════════════════════════════════
 //  PLAYBACK  — full XHR download with progress, no chunking
 // ════════════════════════════════════════
 
@@ -2564,7 +3750,7 @@ async function playAt(idx) {
 
   document.getElementById('tTitle').textContent = clean;
   document.getElementById('tSub').textContent   =
-    file.mimeType.split('/')[1].toUpperCase() + ' · Google Drive';
+    file.mimeType.split('/')[1].toUpperCase() + (file.vault || file.id.startsWith('vault_') ? ' · My Vault' : ' · Google Drive');
 
   const disc = document.getElementById('disc');
   const cd   = document.getElementById('cdDisc');
@@ -2605,8 +3791,7 @@ async function playAt(idx) {
       // Instant playback from local cache
       setLoad(false);
       if (streamFileId !== file.id) return;
-      if (audioBlobUrl) { URL.revokeObjectURL(audioBlobUrl); }
-      blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [];
+      retireAudioBlobUrl();
       audioBlobUrl = URL.createObjectURL(cachedBlob);
       blobUrls.push(audioBlobUrl);
 
@@ -2621,7 +3806,8 @@ async function playAt(idx) {
       // reset that on iOS can briefly silence the OS audio session.
       inTrackTransition = true;
       audioEl.src    = audioBlobUrl;
-      audioEl.volume = +document.getElementById('volR').value;
+      // During a crossfade the ramp owns the volume (fade-in from 0)
+      audioEl.volume = fadeActive ? 0 : +document.getElementById('volR').value;
       setupAudio();
       // Resume Web Audio without awaiting — on a locked screen the
       // promise can hang in the throttled task queue and delay play().
@@ -2656,6 +3842,28 @@ async function playAt(idx) {
       }
       return;
     }
+  }
+
+  // Vault videos are always local — open the overlay straight from cache,
+  // no Drive token needed (and none may exist if offline).
+  if (!isAu && file.id.startsWith('vault_')) {
+    setLoad(false);
+    openVideoOverlay(file, driveUrl, null, clean);
+    return;
+  }
+
+  // Vault audio with a missing blob (cache was cleared) — can't re-download
+  if (isAu && file.id.startsWith('vault_')) {
+    setLoad(false);
+    toast('File data missing — re-add it to your Vault', true);
+    return;
+  }
+
+  // Guest/offline mode can only play cached or vault media
+  if (!accessToken) {
+    setLoad(false);
+    toast('Sign in to stream this track', true);
+    return;
   }
 
   // Cache miss (or video) — fetch token then download
@@ -2720,9 +3928,8 @@ function downloadAudio(file, driveUrl, token, clean) {
       return;
     }
 
-    // Revoke previous blob
-    if (audioBlobUrl) { URL.revokeObjectURL(audioBlobUrl); }
-    blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls = [];
+    // Revoke previous blob (held alive if a crossfade is still using it)
+    retireAudioBlobUrl();
     audioBlobUrl = URL.createObjectURL(xhr.response);
     blobUrls.push(audioBlobUrl);
 
@@ -2738,7 +3945,7 @@ function downloadAudio(file, driveUrl, token, clean) {
 
     stopMedia(false);
     audioEl.src    = audioBlobUrl;
-    audioEl.volume = +document.getElementById('volR').value;
+    audioEl.volume = fadeActive ? 0 : +document.getElementById('volR').value;
     setupAudio();
     if (audioCtx && audioCtx.state !== 'running') {
       audioCtx.resume().catch(() => {});
@@ -2782,6 +3989,7 @@ function downloadAudio(file, driveUrl, token, clean) {
 }
 
 function stopMedia(clear = true) {
+  cancelCrossfade();
   // Cancel any in-progress download
   if (audioXHR) { audioXHR.abort(); audioXHR = null; }
   if (streamController) { streamController.abort(); streamController = null; }
@@ -3008,7 +4216,7 @@ function drawVis() {
 //  PLAYER CONTROLS
 // ════════════════════════════════════════
 audioEl.addEventListener('timeupdate', () => { updateProg(); updateMediaSessionPosition(); });
-audioEl.addEventListener('ended', () => nextTrack());
+audioEl.addEventListener('ended', () => { if (sleepAtEnd) { sleepNow(); return; } nextTrack(); });
 audioEl.addEventListener('loadedmetadata', () => {
   document.getElementById('tDur').textContent = fmtSec(audioEl.duration);
   updateMediaSessionPosition();
@@ -3096,6 +4304,7 @@ function togglePlay() {
     setNPActive(true);
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   } else {
+    cancelCrossfade();
     audioEl.pause(); setPlayIcon(true);
     document.getElementById('disc').classList.remove('playing');
     setNPActive(false);
@@ -3201,10 +4410,12 @@ function updateMediaSession(title) {
   if (!('mediaSession' in navigator)) return;
   bindMediaSessionHandlers();
 
+  const art = makeArtwork(title);
   navigator.mediaSession.metadata = new MediaMetadata({
     title: title,
     artist: 'DrivePlayer',
-    album: 'Google Drive'
+    album: 'DrivePlayer Library',
+    ...(art ? { artwork: [{ src: art, sizes: '512x512', type: 'image/png' }] } : {})
   });
   // Tell the OS we intend to keep playing — without this, the lock
   // screen treats the next() that follows 'ended' as new playback and
@@ -3273,9 +4484,419 @@ function toast(m, e = false) {
 }
 function fmtSec(s) { if (!s || isNaN(s)) return '0:00'; return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`; }
 function fmtMs(ms)  { return fmtSec(ms / 1000); }
+function fmtSize(b) {
+  if (!b || isNaN(b)) return '0 B';
+  const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return (i === 0 ? b : b.toFixed(1)) + ' ' + u[i];
+}
 function esc(s)     { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function esc2(s)    { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function esc2(s)    { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function rand(n)    { return Math.floor(Math.random() * n); }
+
+// ════════════════════════════════════════
+//  PWA — service worker + install prompt
+// ════════════════════════════════════════
+if ('serviceWorker' in navigator &&
+    (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('[PWA] SW registration failed:', e));
+  });
+}
+
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'none';
+  toast('✓ DrivePlayer installed');
+});
+async function installApp() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice.catch(() => {});
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'none';
+}
+
+// ════════════════════════════════════════
+//  OFFLINE / GUEST MODE — Vault without sign-in
+// ════════════════════════════════════════
+let guestMode = false;
+
+function enterOffline() {
+  guestMode = true;
+  document.getElementById('screenSignin').classList.add('hidden');
+  const app = document.getElementById('screenApp');
+  app.classList.remove('hidden'); app.style.opacity = '0';
+  requestAnimationFrame(() => { app.style.transition = 'opacity .45s'; app.style.opacity = '1'; });
+  document.getElementById('topName').textContent = 'Offline';
+  document.getElementById('topAv').textContent = '⬡';
+  setSource('vault');
+  toast('Offline mode — your Vault is available');
+}
+
+// ════════════════════════════════════════
+//  FAVORITES
+// ════════════════════════════════════════
+let favIds = new Set();
+try { favIds = new Set(JSON.parse(localStorage.getItem('dp_favs') || '[]')); } catch (_) {}
+
+function toggleFav(id) {
+  if (favIds.has(id)) { favIds.delete(id); toast('Removed from favorites'); }
+  else { favIds.add(id); toast('♥ Added to favorites'); }
+  localStorage.setItem('dp_favs', JSON.stringify([...favIds]));
+  applyFilter();
+}
+
+// ════════════════════════════════════════
+//  PLAYBACK SPEED
+// ════════════════════════════════════════
+const SPEEDS = [1, 1.25, 1.5, 2, 0.75];
+let speedIdx = 0;
+
+function cycleSpeed() {
+  speedIdx = (speedIdx + 1) % SPEEDS.length;
+  applySpeed();
+  toast('Speed ' + SPEEDS[speedIdx] + '×');
+}
+function applySpeed() {
+  const s = SPEEDS[speedIdx];
+  [audioEl, videoEl, document.getElementById('overlayVideoEl')].forEach(el => {
+    if (el) { el.defaultPlaybackRate = s; el.playbackRate = s; }
+  });
+  const lbl = document.getElementById('speedLbl');
+  if (lbl) lbl.textContent = s + '×';
+  const btn = document.getElementById('speedBtn');
+  if (btn) btn.classList.toggle('on', s !== 1);
+}
+
+// ════════════════════════════════════════
+//  SLEEP TIMER
+// ════════════════════════════════════════
+const SLEEP_OPTS = [0, 15, 30, 60, -1]; // minutes; -1 = end of current track
+let sleepIdx = 0, sleepTimeout = null, sleepAtEnd = false;
+
+function cycleSleep() {
+  sleepIdx = (sleepIdx + 1) % SLEEP_OPTS.length;
+  if (sleepTimeout) { clearTimeout(sleepTimeout); sleepTimeout = null; }
+  sleepAtEnd = false;
+  const v = SLEEP_OPTS[sleepIdx];
+  const btn = document.getElementById('sleepBtn');
+  const lbl = document.getElementById('sleepLbl');
+  if (v > 0) {
+    sleepTimeout = setTimeout(sleepNow, v * 60_000);
+    if (lbl) lbl.textContent = v + 'm';
+    toast('😴 Sleeping in ' + v + ' min');
+  } else if (v === -1) {
+    sleepAtEnd = true;
+    if (lbl) lbl.textContent = 'END';
+    toast('😴 Sleeping after this track');
+  } else {
+    if (lbl) lbl.textContent = '';
+    toast('Sleep timer off');
+  }
+  if (btn) btn.classList.toggle('on', v !== 0);
+}
+
+function sleepNow() {
+  if (sleepTimeout) { clearTimeout(sleepTimeout); }
+  sleepTimeout = null; sleepAtEnd = false; sleepIdx = 0;
+  const btn = document.getElementById('sleepBtn');
+  const lbl = document.getElementById('sleepLbl');
+  if (btn) btn.classList.remove('on');
+  if (lbl) lbl.textContent = '';
+  if (!audioEl.paused) { audioEl.pause(); setPlayIcon(true); setNPActive(false); document.getElementById('disc').classList.remove('playing'); }
+  const ov = document.getElementById('overlayVideoEl');
+  if (ov && !ov.paused) { ov.pause(); setPlayIcon(true); setNPActive(false); }
+  toast('😴 Sleep timer — playback paused');
+}
+
+// ════════════════════════════════════════
+//  PICTURE-IN-PICTURE
+// ════════════════════════════════════════
+async function togglePiP() {
+  const v = document.getElementById('overlayVideoEl');
+  try {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
+    } else if (v && v.style.display !== 'none' && document.pictureInPictureEnabled && v.readyState > 0) {
+      await v.requestPictureInPicture();
+    } else {
+      toast('Picture-in-Picture not available for this video', true);
+    }
+  } catch (e) {
+    console.warn('[PiP]', e);
+    toast('Picture-in-Picture failed', true);
+  }
+}
+
+// ════════════════════════════════════════
+//  LOCK-SCREEN ARTWORK — generated CD art
+// ════════════════════════════════════════
+let artCache = {};
+
+function makeArtwork(title) {
+  try {
+    const key = String(title).slice(0, 48);
+    if (artCache[key]) return artCache[key];
+    if (Object.keys(artCache).length > 24) artCache = {};
+
+    const c = document.createElement('canvas');
+    c.width = c.height = 512;
+    const x = c.getContext('2d');
+
+    // Background + ambient glows
+    x.fillStyle = '#060a10'; x.fillRect(0, 0, 512, 512);
+    let g = x.createRadialGradient(120, 90, 0, 120, 90, 320);
+    g.addColorStop(0, 'rgba(0,200,232,0.16)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 512, 512);
+    g = x.createRadialGradient(430, 440, 0, 430, 440, 300);
+    g.addColorStop(0, 'rgba(26,127,255,0.14)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 512, 512);
+
+    // Vinyl disc
+    x.save(); x.translate(256, 210);
+    g = x.createRadialGradient(0, 0, 20, 0, 0, 150);
+    g.addColorStop(0, '#1a1a1a'); g.addColorStop(0.5, '#101010'); g.addColorStop(1, '#161616');
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, 150, 0, 7); x.fill();
+    x.strokeStyle = 'rgba(255,255,255,0.05)'; x.lineWidth = 1;
+    for (let r = 62; r < 146; r += 5) { x.beginPath(); x.arc(0, 0, r, 0, 7); x.stroke(); }
+    // Cyan rim
+    g = x.createLinearGradient(-150, -150, 150, 150);
+    g.addColorStop(0, '#00c8e8'); g.addColorStop(1, '#1a7fff');
+    x.strokeStyle = g; x.lineWidth = 5;
+    x.beginPath(); x.arc(0, 0, 150, 0, 7); x.stroke();
+    // Label
+    g = x.createRadialGradient(-12, -16, 4, 0, 0, 56);
+    g.addColorStop(0, '#1a2840'); g.addColorStop(1, '#080e16');
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, 56, 0, 7); x.fill();
+    x.strokeStyle = 'rgba(0,200,232,0.4)'; x.lineWidth = 2;
+    x.beginPath(); x.arc(0, 0, 56, 0, 7); x.stroke();
+    x.fillStyle = '#030508'; x.beginPath(); x.arc(0, 0, 10, 0, 7); x.fill();
+    x.restore();
+
+    // Title, wrapped to two lines
+    x.fillStyle = '#e8e0d0'; x.textAlign = 'center';
+    x.font = '300 34px Georgia, serif';
+    const words = String(title).split(/\s+/);
+    const lines = []; let line = '';
+    for (const w of words) {
+      const t = line ? line + ' ' + w : w;
+      if (x.measureText(t).width > 440 && line) {
+        lines.push(line); line = w;
+        if (lines.length === 2) { line = ''; break; }
+      } else line = t;
+    }
+    if (line && lines.length < 2) lines.push(line);
+    if (lines.length === 2) {
+      while (x.measureText(lines[1] + '…').width > 440) lines[1] = lines[1].slice(0, -1);
+      if (words.join(' ').length > (lines[0] + ' ' + lines[1]).length) lines[1] += '…';
+    }
+    lines.forEach((l, i) => x.fillText(l, 256, 430 + i * 42));
+    x.font = '15px monospace'; x.fillStyle = 'rgba(0,200,232,0.7)';
+    x.fillText('D R I V E P L A Y E R', 256, lines.length > 1 ? 505 : 478);
+
+    const url = c.toDataURL('image/png');
+    artCache[key] = url;
+    return url;
+  } catch (_) { return null; }
+}
+
+// ════════════════════════════════════════
+//  CROSSFADE — blend track endings into the next track
+// ════════════════════════════════════════
+// The outgoing track is handed to a secondary <audio> element that fades
+// out (equal-power) while the next cached track fades in on the main
+// element. Fires only on automatic track-end transitions, audio→audio,
+// and only when the next track is already in the IndexedDB cache (so
+// there's never a silent gap from a slow download).
+
+const XFADE_OPTS = [0, 3, 6, 12]; // seconds
+let xfadeIdx = parseInt(localStorage.getItem('dp_xfade') || '0', 10);
+if (!(xfadeIdx >= 0 && xfadeIdx < XFADE_OPTS.length)) xfadeIdx = 0;
+let fadeEl      = null;   // secondary element playing the outgoing track
+let fadeHoldUrl = null;   // blob URL kept alive for fadeEl during the fade
+let fadeTimer   = null;   // volume ramp interval
+let fadeArming  = false;  // async cache check in flight
+let fadeActive  = false;  // crossfade in progress
+
+function xfadeSecs() { return XFADE_OPTS[xfadeIdx] || 0; }
+
+function cycleCrossfade() {
+  xfadeIdx = (xfadeIdx + 1) % XFADE_OPTS.length;
+  localStorage.setItem('dp_xfade', String(xfadeIdx));
+  updateXfadeBtn();
+  toast(xfadeSecs() ? 'Crossfade ' + xfadeSecs() + 's' : 'Crossfade off');
+}
+
+function updateXfadeBtn() {
+  const b = document.getElementById('xfadeBtn');
+  if (!b) return;
+  b.textContent = 'Crossfade' + (xfadeSecs() ? ' ' + xfadeSecs() + 's' : '');
+  b.classList.toggle('active', xfadeSecs() > 0);
+}
+
+/** Compute the index the next automatic transition would play, or -1 */
+function computeNextIdx() {
+  const m = filtered.filter(f => !f.mimeType.includes('folder'));
+  if (!m.length) return -1;
+  let n = isShuf ? rand(m.length) : m.indexOf(filtered[curIdx]) + 1;
+  if (n >= m.length) {
+    if (isRepeat) n = 0;
+    else return -1;
+  }
+  return filtered.indexOf(m[n]);
+}
+
+async function maybeStartCrossfade() {
+  const dur = xfadeSecs();
+  if (!dur || fadeActive || fadeArming || sleepAtEnd) return;
+  if (!audioEl.duration || !isFinite(audioEl.duration) || audioEl.paused) return;
+  const remain = audioEl.duration - audioEl.currentTime;
+  if (remain > dur + 0.25 || remain <= 0.4) return;
+  const nIdx = computeNextIdx();
+  if (nIdx < 0) return;
+  const nf = filtered[nIdx];
+  if (!nf || !nf.mimeType.includes('audio/')) return;
+
+  fadeArming = true;
+  const cached = await getCachedBlob(nf.id);
+  if (!cached || audioEl.paused || !audioEl.duration) { fadeArming = false; return; }
+  const remainNow = audioEl.duration - audioEl.currentTime;
+  if (remainNow <= 0.4) { fadeArming = false; return; }
+  startCrossfade(nIdx, Math.min(dur, Math.max(0.5, remainNow)));
+}
+
+function startCrossfade(nextIdx, dur) {
+  fadeArming = false;
+  fadeActive = true;
+  const userVol = isMuted ? 0 : +document.getElementById('volR').value;
+
+  // Hand the outgoing audio to the secondary element
+  if (!fadeEl) fadeEl = new Audio();
+  fadeEl.src = audioEl.currentSrc;
+  fadeEl.playbackRate = audioEl.playbackRate || 1;
+  try { fadeEl.currentTime = audioEl.currentTime; } catch (_) {}
+  fadeEl.volume = userVol;
+  fadeEl.play().catch(() => {});
+
+  // Start the next track on the main element (fades in below)
+  playAt(nextIdx);
+
+  const t0 = performance.now();
+  if (fadeTimer) clearInterval(fadeTimer);
+  fadeTimer = setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / (dur * 1000));
+    try {
+      fadeEl.volume  = userVol * Math.cos(k * Math.PI / 2);
+      audioEl.volume = userVol * Math.sin(k * Math.PI / 2);
+    } catch (_) {}
+    if (k >= 1) endCrossfade(true);
+  }, 50);
+}
+
+function endCrossfade(restoreVol) {
+  if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
+  if (fadeEl) {
+    try { fadeEl.pause(); } catch (_) {}
+    fadeEl.removeAttribute('src');
+    try { fadeEl.load(); } catch (_) {}
+  }
+  if (fadeHoldUrl) { URL.revokeObjectURL(fadeHoldUrl); fadeHoldUrl = null; }
+  if (restoreVol) audioEl.volume = isMuted ? 0 : +document.getElementById('volR').value;
+  fadeActive = false;
+}
+
+function cancelCrossfade() {
+  if (fadeActive) endCrossfade(true);
+  fadeArming = false;
+}
+
+/** Release the previous track's blob URL — but keep it alive while the
+    crossfade element is still playing from it. */
+function retireAudioBlobUrl() {
+  blobUrls = [];
+  if (!audioBlobUrl) return;
+  if (fadeActive) {
+    if (fadeHoldUrl) URL.revokeObjectURL(fadeHoldUrl);
+    fadeHoldUrl = audioBlobUrl;
+  } else {
+    URL.revokeObjectURL(audioBlobUrl);
+  }
+  audioBlobUrl = null;
+}
+
+audioEl.addEventListener('timeupdate', () => { maybeStartCrossfade(); });
+updateXfadeBtn();
+
+// ════════════════════════════════════════
+//  WEB SHARE
+// ════════════════════════════════════════
+let curYtVideo = null; // {id,title} while a YouTube embed is open
+
+async function shareCurrentTrack() {
+  const f = filtered[curIdx];
+  if (!f || f.mimeType.includes('folder')) { toast('Play a track first', true); return; }
+  const clean = f.name.replace(/\.[^.]+$/, '');
+  try {
+    // Best: share the actual media file (supported on most mobile browsers)
+    const blob = await getCachedBlob(f.id);
+    if (blob && navigator.canShare) {
+      const file = new File([blob], f.name, { type: f.mimeType });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: clean });
+        return;
+      }
+    }
+    if (navigator.share) {
+      await navigator.share({ title: clean, text: '🎵 ' + clean + ' — via DrivePlayer', url: location.href });
+      return;
+    }
+    await navigator.clipboard.writeText(clean + ' — ' + location.href);
+    toast('Link copied to clipboard');
+  } catch (e) {
+    if (e && e.name === 'AbortError') return; // user closed the share sheet
+    console.warn('[Share]', e);
+    toast('Sharing not available here', true);
+  }
+}
+
+async function shareVideo() {
+  if (curYtVideo) {
+    const url = 'https://youtu.be/' + curYtVideo.id;
+    try {
+      if (navigator.share) { await navigator.share({ title: curYtVideo.title, url }); return; }
+      await navigator.clipboard.writeText(url);
+      toast('YouTube link copied');
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+      toast('Sharing not available here', true);
+    }
+    return;
+  }
+  shareCurrentTrack();
+}
+
+// ════════════════════════════════════════
+//  CONNECTIVITY AWARENESS
+// ════════════════════════════════════════
+window.addEventListener('online', () => {
+  toast('Back online');
+  if (accessToken) document.getElementById('liveDot')?.classList.add('on');
+});
+window.addEventListener('offline', () => {
+  toast('Offline — your Vault still works');
+  document.getElementById('liveDot')?.classList.remove('on');
+});
 
 // ════════════════════════════════════════
 //  KEYBOARD
@@ -3356,7 +4977,9 @@ function openVideoOverlay(file, driveUrl, token, clean) {
   const pctEl    = document.getElementById('vloadPct');
   const titleEl  = document.getElementById('videoOverlayTitle');
 
-  // Reset state fully
+  // Reset state fully (including any YouTube embed left open)
+  const ytF = document.getElementById('ytFrame');
+  if (ytF) { ytF.src = ''; ytF.style.display = 'none'; }
   ovVideo.style.display  = 'none';
   ovVideo.src            = '';
   ovVideo.ontimeupdate   = null;
@@ -3411,6 +5034,13 @@ function openVideoOverlay(file, driveUrl, token, clean) {
       playVideoBlob(cachedBlob);
       updateMediaSession(clean);
       preloadNextTracks();
+      return;
+    }
+
+    // Vault files are local-only — nothing to download if the blob is gone
+    if (file.id.startsWith('vault_') || !token) {
+      closeVideoOverlay();
+      toast('File data missing — re-add it to your Vault', true);
       return;
     }
 
@@ -3488,7 +5118,10 @@ function closeVideoOverlay() {
   document.body.style.overflow = '';
   if (tapPanel) tapPanel.classList.remove('show');
 
-  // Stop and clean up
+  // Stop and clean up (including the YouTube embed)
+  curYtVideo = null;
+  const ytF = document.getElementById('ytFrame');
+  if (ytF) { ytF.src = ''; ytF.style.display = 'none'; }
   ovVideo.pause();
   ovVideo.src          = '';
   ovVideo.style.display = 'none';
@@ -3506,6 +5139,8 @@ function closeVideoOverlay() {
 }
 
 function onOverlayVideoEnded() {
+  // Sleep-at-end-of-track takes precedence over auto-advance
+  if (sleepAtEnd) { sleepNow(); return; }
   // Auto-play next video track if available
   nextTrack();
 }
