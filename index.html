@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#060a10"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<link rel="icon" href="icon.svg" type="image/svg+xml"/>
 <title>DrivePlayer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
@@ -794,6 +800,47 @@ input[type=range]::-webkit-slider-thumb{
   box-shadow:0 0 6px rgba(0,200,232,0.3);
 }
 
+/* ── Offline / guest mode button on sign-in ── */
+.offline-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;margin-top:12px;padding:11px;border-radius:12px;
+  background:none;border:1px solid var(--border);cursor:pointer;
+  font-family:var(--font-m);font-size:10px;color:var(--sub);
+  letter-spacing:.05em;transition:all .2s;
+}
+.offline-btn:hover{border-color:rgba(0,229,155,0.4);color:var(--green);background:var(--green-dim)}
+
+/* Install app button */
+.install-btn{border-color:rgba(0,229,155,0.35);color:var(--green)}
+.install-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+
+/* Favorites */
+.ftab.fav{flex:0 0 auto;min-width:34px}
+.ffav{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  width:26px;height:26px;border-radius:7px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;opacity:0;
+}
+.fitem:hover .ffav{opacity:1}
+.ffav:hover{color:#ff5c6c;background:rgba(224,80,96,0.1)}
+.ffav.on{opacity:1;color:#ff5c6c}
+.ffav svg{width:12px;height:12px}
+@media (hover:none){.ffav{opacity:.6}.ffav.on{opacity:1}}
+
+/* Playback speed + sleep timer buttons */
+.speed-btn span{
+  font-family:var(--font-m);font-size:10px;font-weight:500;letter-spacing:.02em;
+}
+.sleep-btn{position:relative}
+.sleep-lbl{
+  position:absolute;bottom:2px;right:2px;
+  font-family:var(--font-m);font-size:7px;color:var(--amber);
+  letter-spacing:.02em;pointer-events:none;
+}
+.sleep-btn.on{color:var(--amber)}
+.sleep-btn.on svg{filter:drop-shadow(0 0 4px rgba(240,184,64,0.5))}
+
 /* ── Source tabs (Drive / YouTube / Vault) ── */
 .src-tabs{
   display:flex;gap:6px;padding:10px 16px 0;flex-shrink:0;
@@ -1313,6 +1360,11 @@ input[type=range]::-webkit-slider-thumb{
         <div class="btn-hint" id="btnHint">Initialising&#8230;</div>
         <div class="err-msg" id="errMsg"></div>
       </div>
+
+      <button class="offline-btn" onclick="enterOffline()" title="Use your Vault without signing in — works fully offline">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Continue offline — Vault only
+      </button>
     </div>
 
     <!-- ── WebView blocker (shown only in WebView) ── -->
@@ -1343,6 +1395,10 @@ input[type=range]::-webkit-slider-thumb{
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <div class="top-right">
+      <button class="tbtn install-btn" id="installBtn" style="display:none" onclick="installApp()" title="Install DrivePlayer as an app">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span class="btn-lbl">Install</span>
+      </button>
       <div class="uchip">
         <div class="uav" id="topAv">?</div>
         <span id="topName">User</span>
@@ -1403,6 +1459,7 @@ input[type=range]::-webkit-slider-thumb{
       <button class="ftab on" onclick="setFilter(this,'all')">All</button>
       <button class="ftab" onclick="setFilter(this,'audio')">Audio</button>
       <button class="ftab" onclick="setFilter(this,'video')">Video</button>
+      <button class="ftab fav" onclick="setFilter(this,'fav')" title="Favorites">&hearts;</button>
     </div>
     <div class="sbar">
       <span class="sbar-icon">
@@ -1510,6 +1567,10 @@ input[type=range]::-webkit-slider-thumb{
 
     <!-- Controls -->
     <div class="ctrl-col">
+      <!-- Playback speed -->
+      <button class="cbtn speed-btn" id="speedBtn" onclick="cycleSpeed()" title="Playback speed">
+        <span id="speedLbl">1×</span>
+      </button>
       <!-- Shuffle -->
       <button class="cbtn" id="shufBtn" onclick="toggleShuffle()" title="Shuffle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1537,6 +1598,11 @@ input[type=range]::-webkit-slider-thumb{
           <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>
         </svg>
       </button>
+      <!-- Sleep timer -->
+      <button class="cbtn sleep-btn" id="sleepBtn" onclick="cycleSleep()" title="Sleep timer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        <span class="sleep-lbl" id="sleepLbl"></span>
+      </button>
     </div>
 
     <!-- Volume -->
@@ -1556,6 +1622,9 @@ input[type=range]::-webkit-slider-thumb{
 <div class="video-overlay" id="videoOverlay">
   <div class="video-header">
     <div class="video-title" id="videoOverlayTitle">Loading…</div>
+    <button class="video-close" id="pipBtn" onclick="togglePiP()" title="Picture-in-Picture" style="margin-right:8px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 3H3a2 2 0 00-2 2v14a2 2 0 002 2h18a2 2 0 002-2V5a2 2 0 00-2-2z"/><rect x="12" y="12" width="8" height="6" rx="1" fill="currentColor" stroke="none"/></svg>
+    </button>
     <button class="video-close" onclick="closeVideoOverlay()" title="Close">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -1803,6 +1872,7 @@ function checkRedirectToken() {
 }
 
 async function handleManualToken(token, expiresIn) {
+  guestMode = false;
   accessToken = token;
   const lifetime = expiresIn * 1000;
   tokenExpiry = Date.now() + lifetime;
@@ -2072,6 +2142,7 @@ async function onToken(resp) {
     setErr('Sign-in failed: ' + resp.error); btnIdle(); return;
   }
   autoLoginInProgress = false;
+  guestMode    = false;
   accessToken  = resp.access_token;
   // Google tokens last 3600s; store expiry with 60s safety margin
   const lifetime = (resp.expires_in || 3600) * 1000;
@@ -2106,6 +2177,7 @@ async function onToken(resp) {
 }
 
 function signOut() {
+  guestMode = false;
   cancelPreload();
   if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
   isRefreshing = false; refreshQueue = []; tokenExpiry = 0;
@@ -2669,6 +2741,7 @@ function applyFilter() {
   const q = document.getElementById('sq').value.toLowerCase();
   filtered = allFiles.filter(f => {
     const ok = f.name.toLowerCase().includes(q);
+    if (curFilter === 'fav') return ok && f.mimeType !== 'application/vnd.google-apps.folder' && favIds.has(f.id);
     if (f.mimeType === 'application/vnd.google-apps.folder') return ok;
     if (curFilter === 'audio') return ok && f.mimeType.includes('audio/');
     if (curFilter === 'video') return ok && f.mimeType.includes('video/');
@@ -2713,10 +2786,15 @@ function renderList() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
         </button>`
       : '';
+    const isFav = favIds.has(f.id);
+    const fav  = isDir ? '' :
+      `<button class="ffav${isFav ? ' on' : ''}" onclick="event.stopPropagation();toggleFav('${esc2(f.id)}')" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
+        <svg viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+      </button>`;
     return `<div class="fitem${act}" data-i="${i}" onclick="${oc}">
       <div class="ficon ${cls}">${icon}</div>
       <div class="fmeta"><div class="fname">${esc(f.name)}</div><div class="ftype">${ext}${f.vault ? ' · VAULT' : ''}</div></div>
-      ${dur ? `<div class="fdur">${dur}</div>` : ''}${del}
+      ${dur ? `<div class="fdur">${dur}</div>` : ''}${fav}${del}
     </div>`;
   }).join('');
   renderQueue();
@@ -2769,6 +2847,10 @@ function renderBC() {
 
 function setSource(src) {
   if (src === curSource) return;
+  if (!accessToken && src !== 'vault') {
+    toast('Sign in to browse ' + (src === 'drive' ? 'Google Drive' : 'YouTube'), true);
+    return;
+  }
   curSource = src;
 
   // Tab highlighting
@@ -3668,7 +3750,7 @@ function drawVis() {
 //  PLAYER CONTROLS
 // ════════════════════════════════════════
 audioEl.addEventListener('timeupdate', () => { updateProg(); updateMediaSessionPosition(); });
-audioEl.addEventListener('ended', () => nextTrack());
+audioEl.addEventListener('ended', () => { if (sleepAtEnd) { sleepNow(); return; } nextTrack(); });
 audioEl.addEventListener('loadedmetadata', () => {
   document.getElementById('tDur').textContent = fmtSec(audioEl.duration);
   updateMediaSessionPosition();
@@ -3861,10 +3943,12 @@ function updateMediaSession(title) {
   if (!('mediaSession' in navigator)) return;
   bindMediaSessionHandlers();
 
+  const art = makeArtwork(title);
   navigator.mediaSession.metadata = new MediaMetadata({
     title: title,
     artist: 'DrivePlayer',
-    album: 'Google Drive'
+    album: 'DrivePlayer Library',
+    ...(art ? { artwork: [{ src: art, sizes: '512x512', type: 'image/png' }] } : {})
   });
   // Tell the OS we intend to keep playing — without this, the lock
   // screen treats the next() that follows 'ended' as new playback and
@@ -3943,6 +4027,234 @@ function fmtSize(b) {
 function esc(s)     { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function esc2(s)    { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function rand(n)    { return Math.floor(Math.random() * n); }
+
+// ════════════════════════════════════════
+//  PWA — service worker + install prompt
+// ════════════════════════════════════════
+if ('serviceWorker' in navigator &&
+    (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('[PWA] SW registration failed:', e));
+  });
+}
+
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'none';
+  toast('✓ DrivePlayer installed');
+});
+async function installApp() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice.catch(() => {});
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'none';
+}
+
+// ════════════════════════════════════════
+//  OFFLINE / GUEST MODE — Vault without sign-in
+// ════════════════════════════════════════
+let guestMode = false;
+
+function enterOffline() {
+  guestMode = true;
+  document.getElementById('screenSignin').classList.add('hidden');
+  const app = document.getElementById('screenApp');
+  app.classList.remove('hidden'); app.style.opacity = '0';
+  requestAnimationFrame(() => { app.style.transition = 'opacity .45s'; app.style.opacity = '1'; });
+  document.getElementById('topName').textContent = 'Offline';
+  document.getElementById('topAv').textContent = '⬡';
+  setSource('vault');
+  toast('Offline mode — your Vault is available');
+}
+
+// ════════════════════════════════════════
+//  FAVORITES
+// ════════════════════════════════════════
+let favIds = new Set();
+try { favIds = new Set(JSON.parse(localStorage.getItem('dp_favs') || '[]')); } catch (_) {}
+
+function toggleFav(id) {
+  if (favIds.has(id)) { favIds.delete(id); toast('Removed from favorites'); }
+  else { favIds.add(id); toast('♥ Added to favorites'); }
+  localStorage.setItem('dp_favs', JSON.stringify([...favIds]));
+  applyFilter();
+}
+
+// ════════════════════════════════════════
+//  PLAYBACK SPEED
+// ════════════════════════════════════════
+const SPEEDS = [1, 1.25, 1.5, 2, 0.75];
+let speedIdx = 0;
+
+function cycleSpeed() {
+  speedIdx = (speedIdx + 1) % SPEEDS.length;
+  applySpeed();
+  toast('Speed ' + SPEEDS[speedIdx] + '×');
+}
+function applySpeed() {
+  const s = SPEEDS[speedIdx];
+  [audioEl, videoEl, document.getElementById('overlayVideoEl')].forEach(el => {
+    if (el) { el.defaultPlaybackRate = s; el.playbackRate = s; }
+  });
+  const lbl = document.getElementById('speedLbl');
+  if (lbl) lbl.textContent = s + '×';
+  const btn = document.getElementById('speedBtn');
+  if (btn) btn.classList.toggle('on', s !== 1);
+}
+
+// ════════════════════════════════════════
+//  SLEEP TIMER
+// ════════════════════════════════════════
+const SLEEP_OPTS = [0, 15, 30, 60, -1]; // minutes; -1 = end of current track
+let sleepIdx = 0, sleepTimeout = null, sleepAtEnd = false;
+
+function cycleSleep() {
+  sleepIdx = (sleepIdx + 1) % SLEEP_OPTS.length;
+  if (sleepTimeout) { clearTimeout(sleepTimeout); sleepTimeout = null; }
+  sleepAtEnd = false;
+  const v = SLEEP_OPTS[sleepIdx];
+  const btn = document.getElementById('sleepBtn');
+  const lbl = document.getElementById('sleepLbl');
+  if (v > 0) {
+    sleepTimeout = setTimeout(sleepNow, v * 60_000);
+    if (lbl) lbl.textContent = v + 'm';
+    toast('😴 Sleeping in ' + v + ' min');
+  } else if (v === -1) {
+    sleepAtEnd = true;
+    if (lbl) lbl.textContent = 'END';
+    toast('😴 Sleeping after this track');
+  } else {
+    if (lbl) lbl.textContent = '';
+    toast('Sleep timer off');
+  }
+  if (btn) btn.classList.toggle('on', v !== 0);
+}
+
+function sleepNow() {
+  if (sleepTimeout) { clearTimeout(sleepTimeout); }
+  sleepTimeout = null; sleepAtEnd = false; sleepIdx = 0;
+  const btn = document.getElementById('sleepBtn');
+  const lbl = document.getElementById('sleepLbl');
+  if (btn) btn.classList.remove('on');
+  if (lbl) lbl.textContent = '';
+  if (!audioEl.paused) { audioEl.pause(); setPlayIcon(true); setNPActive(false); document.getElementById('disc').classList.remove('playing'); }
+  const ov = document.getElementById('overlayVideoEl');
+  if (ov && !ov.paused) { ov.pause(); setPlayIcon(true); setNPActive(false); }
+  toast('😴 Sleep timer — playback paused');
+}
+
+// ════════════════════════════════════════
+//  PICTURE-IN-PICTURE
+// ════════════════════════════════════════
+async function togglePiP() {
+  const v = document.getElementById('overlayVideoEl');
+  try {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
+    } else if (v && v.style.display !== 'none' && document.pictureInPictureEnabled && v.readyState > 0) {
+      await v.requestPictureInPicture();
+    } else {
+      toast('Picture-in-Picture not available for this video', true);
+    }
+  } catch (e) {
+    console.warn('[PiP]', e);
+    toast('Picture-in-Picture failed', true);
+  }
+}
+
+// ════════════════════════════════════════
+//  LOCK-SCREEN ARTWORK — generated CD art
+// ════════════════════════════════════════
+let artCache = {};
+
+function makeArtwork(title) {
+  try {
+    const key = String(title).slice(0, 48);
+    if (artCache[key]) return artCache[key];
+    if (Object.keys(artCache).length > 24) artCache = {};
+
+    const c = document.createElement('canvas');
+    c.width = c.height = 512;
+    const x = c.getContext('2d');
+
+    // Background + ambient glows
+    x.fillStyle = '#060a10'; x.fillRect(0, 0, 512, 512);
+    let g = x.createRadialGradient(120, 90, 0, 120, 90, 320);
+    g.addColorStop(0, 'rgba(0,200,232,0.16)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 512, 512);
+    g = x.createRadialGradient(430, 440, 0, 430, 440, 300);
+    g.addColorStop(0, 'rgba(26,127,255,0.14)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 512, 512);
+
+    // Vinyl disc
+    x.save(); x.translate(256, 210);
+    g = x.createRadialGradient(0, 0, 20, 0, 0, 150);
+    g.addColorStop(0, '#1a1a1a'); g.addColorStop(0.5, '#101010'); g.addColorStop(1, '#161616');
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, 150, 0, 7); x.fill();
+    x.strokeStyle = 'rgba(255,255,255,0.05)'; x.lineWidth = 1;
+    for (let r = 62; r < 146; r += 5) { x.beginPath(); x.arc(0, 0, r, 0, 7); x.stroke(); }
+    // Cyan rim
+    g = x.createLinearGradient(-150, -150, 150, 150);
+    g.addColorStop(0, '#00c8e8'); g.addColorStop(1, '#1a7fff');
+    x.strokeStyle = g; x.lineWidth = 5;
+    x.beginPath(); x.arc(0, 0, 150, 0, 7); x.stroke();
+    // Label
+    g = x.createRadialGradient(-12, -16, 4, 0, 0, 56);
+    g.addColorStop(0, '#1a2840'); g.addColorStop(1, '#080e16');
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, 56, 0, 7); x.fill();
+    x.strokeStyle = 'rgba(0,200,232,0.4)'; x.lineWidth = 2;
+    x.beginPath(); x.arc(0, 0, 56, 0, 7); x.stroke();
+    x.fillStyle = '#030508'; x.beginPath(); x.arc(0, 0, 10, 0, 7); x.fill();
+    x.restore();
+
+    // Title, wrapped to two lines
+    x.fillStyle = '#e8e0d0'; x.textAlign = 'center';
+    x.font = '300 34px Georgia, serif';
+    const words = String(title).split(/\s+/);
+    const lines = []; let line = '';
+    for (const w of words) {
+      const t = line ? line + ' ' + w : w;
+      if (x.measureText(t).width > 440 && line) {
+        lines.push(line); line = w;
+        if (lines.length === 2) { line = ''; break; }
+      } else line = t;
+    }
+    if (line && lines.length < 2) lines.push(line);
+    if (lines.length === 2) {
+      while (x.measureText(lines[1] + '…').width > 440) lines[1] = lines[1].slice(0, -1);
+      if (words.join(' ').length > (lines[0] + ' ' + lines[1]).length) lines[1] += '…';
+    }
+    lines.forEach((l, i) => x.fillText(l, 256, 430 + i * 42));
+    x.font = '15px monospace'; x.fillStyle = 'rgba(0,200,232,0.7)';
+    x.fillText('D R I V E P L A Y E R', 256, lines.length > 1 ? 505 : 478);
+
+    const url = c.toDataURL('image/png');
+    artCache[key] = url;
+    return url;
+  } catch (_) { return null; }
+}
+
+// ════════════════════════════════════════
+//  CONNECTIVITY AWARENESS
+// ════════════════════════════════════════
+window.addEventListener('online', () => {
+  toast('Back online');
+  if (accessToken) document.getElementById('liveDot')?.classList.add('on');
+});
+window.addEventListener('offline', () => {
+  toast('Offline — your Vault still works');
+  document.getElementById('liveDot')?.classList.remove('on');
+});
 
 // ════════════════════════════════════════
 //  KEYBOARD
@@ -4184,6 +4496,8 @@ function closeVideoOverlay() {
 }
 
 function onOverlayVideoEnded() {
+  // Sleep-at-end-of-track takes precedence over auto-advance
+  if (sleepAtEnd) { sleepNow(); return; }
   // Auto-play next video track if available
   nextTrack();
 }
