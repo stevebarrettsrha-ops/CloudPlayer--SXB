@@ -1082,6 +1082,7 @@ input[type=range]::-webkit-slider-thumb{
   display:none;width:100%;height:100%;border:none;background:#000;
   position:relative;z-index:5;
 }
+#ytFrame iframe{width:100%;height:100%;border:none;display:block}
 
 /* ── Drag & drop overlay ── */
 .drop-overlay{
@@ -1310,6 +1311,11 @@ input[type=range]::-webkit-slider-thumb{
   animation:overlayIn .2s ease;
 }
 .video-overlay.open{display:flex}
+/* While the overlay is open the player bar stays docked below it, so the
+   progress bar, seek, speed, sleep and next controls remain usable.
+   JS sets --pbar-h to the bar's measured height. */
+.video-overlay.docked{bottom:var(--pbar-h,0px)}
+body.video-open .pbar{z-index:210}
 @keyframes overlayIn{from{opacity:0}to{opacity:1}}
 
 /* Header bar */
@@ -1784,7 +1790,7 @@ input[type=range]::-webkit-slider-thumb{
            onended="onOverlayVideoEnded()">
     </video>
     <!-- YouTube embed player (shown instead of the video element for YT content) -->
-    <iframe id="ytFrame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+    <div id="ytFrame"><div id="ytMount"></div></div>
     <!-- Tap-to-play fallback if autoplay is blocked -->
     <div class="video-tap-play" id="videoTapPlay" onclick="tapToPlay()">
       <div class="video-tap-btn">
@@ -3700,28 +3706,196 @@ function renderYtVideos() {
     </div>`).join('');
 }
 
-/** Play a YouTube video in the overlay via the official embed player */
-function playYtVideo(videoId, title) {
-  curYtVideo = { id: videoId, title };
-  const overlay = document.getElementById('videoOverlay');
-  const frame   = document.getElementById('ytFrame');
-  const ovVideo = document.getElementById('overlayVideoEl');
-  const loadPanel = document.getElementById('videoLoadingPanel');
+// ── YouTube IFrame Player API ──
+// A bare <iframe> embed exposes no timing data, so the progress bar, seek
+// and play/pause would all be dead for YouTube content. The IFrame API
+// gives us getCurrentTime()/getDuration()/seekTo(), which we poll to drive
+// the same player bar the audio path uses.
 
-  // Stop any local media so audio doesn't double up
+let ytPlayer     = null;   // YT.Player instance
+let ytApiLoading = false;
+let ytPollTimer  = null;
+let ytPlainMode  = false;  // true if we fell back to a bare iframe
+
+/** True while a YouTube video owns the player bar */
+function ytIsActive() {
+  return !!(curYtVideo && document.getElementById('videoOverlay').classList.contains('open'));
+}
+
+function ytDuration() {
+  try { return (ytPlayer && ytPlayer.getDuration) ? (ytPlayer.getDuration() || 0) : 0; }
+  catch(_) { return 0; }
+}
+
+/** Load the IFrame API once; resolves false if it can't be reached */
+function loadYtApi() {
+  return new Promise((resolve) => {
+    if (window.YT && window.YT.Player) return resolve(true);
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof prev === 'function') { try { prev(); } catch(_) {} }
+      resolve(true);
+    };
+    if (!ytApiLoading) {
+      ytApiLoading = true;
+      const sc = document.createElement('script');
+      sc.src = 'https://www.youtube.com/iframe_api';
+      sc.onerror = () => resolve(false);
+      document.head.appendChild(sc);
+    }
+    // Don't hang the UI if the API never arrives (blocked, offline, …)
+    setTimeout(() => resolve(!!(window.YT && window.YT.Player)), 8000);
+  });
+}
+
+function ytPoll() {
+  if (!ytIsActive() || !ytPlayer || !ytPlayer.getCurrentTime) return;
+  let cur = 0, dur = 0;
+  try { cur = ytPlayer.getCurrentTime() || 0; dur = ytPlayer.getDuration() || 0; } catch(_) { return; }
+  document.getElementById('pf').style.width = dur > 0 ? (cur / dur) * 100 + '%' : '0%';
+  document.getElementById('tCur').textContent = fmtSec(cur);
+  document.getElementById('tDur').textContent = fmtSec(dur);
+}
+
+function startYtPoll() {
+  stopYtPoll();
+  ytPoll();
+  ytPollTimer = setInterval(ytPoll, 250);
+}
+
+function stopYtPoll() {
+  if (ytPollTimer) { clearInterval(ytPollTimer); ytPollTimer = null; }
+}
+
+/** Auto-advance to the next upload in the open channel */
+function ytNextVideo() {
+  if (!curYtVideo || !ytVideos.length) return false;
+  const i = ytVideos.findIndex(v => v.id === curYtVideo.id);
+  if (i < 0) return false;
+  let n = i + 1;
+  if (n >= ytVideos.length) {
+    if (!isRepeat) return false;
+    n = 0;
+  }
+  const nv = ytVideos[isShuf ? rand(ytVideos.length) : n];
+  if (!nv) return false;
+  playYtVideo(nv.id, nv.title);
+  return true;
+}
+
+function onYtStateChange(e) {
+  // 1 playing · 2 paused · 0 ended
+  if (e.data === 1) {
+    setPlayIcon(false); setNPActive(true);
+    startYtPoll();
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+  } else if (e.data === 2) {
+    setPlayIcon(true); setNPActive(false);
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+  } else if (e.data === 0) {
+    stopYtPoll(); ytPoll();
+    setPlayIcon(true); setNPActive(false);
+    if (sleepAtEnd) { sleepNow(); return; }
+    if (!ytNextVideo()) toast('End of channel uploads');
+  }
+}
+
+/** Stop the YouTube player and hide its host */
+function ytTeardown() {
+  stopYtPoll();
+  curYtVideo = null;
+  if (ytPlayer) {
+    try { ytPlayer.stopVideo(); } catch(_) {}
+    try { ytPlayer.destroy(); } catch(_) {}
+    ytPlayer = null;
+  }
+  ytPlainMode = false;
+  const host = document.getElementById('ytFrame');
+  if (host) { host.innerHTML = '<div id="ytMount"></div>'; host.style.display = 'none'; }
+}
+
+/** Fallback: plain embed (no progress data, but it still plays) */
+function ytMountPlain(videoId) {
+  ytPlainMode = true;
+  const host = document.getElementById('ytFrame');
+  host.innerHTML = '<iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen ' +
+    'src="https://www.youtube.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&rel=0&modestbranding=1"></iframe>';
+  document.getElementById('tCur').textContent = '0:00';
+  document.getElementById('tDur').textContent = '0:00';
+}
+
+/** Play a YouTube video in the overlay, wired to the app's player bar */
+async function playYtVideo(videoId, title) {
+  // Stop local media first. On an auto-advance this closes the still-open
+  // overlay, which tears down the previous player and clears curYtVideo —
+  // so it has to happen before we claim the new video.
   stopMedia();
 
+  curYtVideo = { id: videoId, title };
+  const overlay   = document.getElementById('videoOverlay');
+  const host      = document.getElementById('ytFrame');
+  const ovVideo   = document.getElementById('overlayVideoEl');
+  const loadPanel = document.getElementById('videoLoadingPanel');
+
   document.getElementById('videoOverlayTitle').textContent = title;
+  document.getElementById('tTitle').textContent = title;
+  document.getElementById('tSub').textContent   = 'YouTube';
   ovVideo.style.display = 'none';
   loadPanel.classList.add('hidden');
   document.getElementById('videoTapPlay').classList.remove('show');
 
-  frame.src = 'https://www.youtube.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&rel=0&modestbranding=1';
-  frame.style.display = 'block';
+  // Reset the bar for the new video
+  document.getElementById('pf').style.width = '0%';
+  document.getElementById('tCur').textContent = '0:00';
+  document.getElementById('tDur').textContent = '0:00';
 
+  host.style.display = 'block';
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+  dockOverlayToPlayerBar();
   if (window.innerWidth <= 768) closeSidebar();
+
+  updateMediaSession(title);
+
+  const ok = await loadYtApi();
+  // The user may have closed the overlay while the API loaded
+  if (!curYtVideo || curYtVideo.id !== videoId) return;
+
+  if (!ok || !window.YT || !window.YT.Player) { ytMountPlain(videoId); return; }
+
+  if (ytPlayer && ytPlayer.loadVideoById && !ytPlainMode) {
+    try {
+      ytPlayer.loadVideoById(videoId);
+      ytPlayer.setVolume(Math.round((isMuted ? 0 : +document.getElementById('volR').value) * 100));
+      startYtPoll();
+      return;
+    } catch(_) { /* fall through and rebuild the player */ }
+  }
+
+  // (Re)build the player into a fresh mount node
+  ytPlainMode = false;
+  host.innerHTML = '<div id="ytMount"></div>';
+  try {
+    ytPlayer = new YT.Player('ytMount', {
+      videoId,
+      playerVars: { autoplay: 1, rel: 0, modestbranding: 1, playsinline: 1 },
+      events: {
+        onReady: (e) => {
+          try {
+            e.target.setVolume(Math.round((isMuted ? 0 : +document.getElementById('volR').value) * 100));
+            e.target.setPlaybackRate(SPEEDS[speedIdx]);
+            e.target.playVideo();
+          } catch(_) {}
+          startYtPoll();
+        },
+        onStateChange: onYtStateChange,
+        onError: () => toast("This video can't be played here — it may be restricted", true)
+      }
+    });
+  } catch (err) {
+    console.warn('[YouTube] player init failed:', err);
+    ytMountPlain(videoId);
+  }
 }
 
 // ════════════════════════════════════════
@@ -4266,6 +4440,9 @@ videoEl.addEventListener('error', () => {
 });
 
 function updateProg() {
+  // While a YouTube video is playing, ytPoll() drives the bar (an embed
+  // exposes no HTMLMediaElement to read time from).
+  if (ytIsActive()) return;
   const ovOpen = document.getElementById('videoOverlay').classList.contains('open');
   const el = ovOpen ? document.getElementById('overlayVideoEl') : audioEl;
   const pct = el.duration ? (el.currentTime / el.duration) * 100 : 0;
@@ -4275,12 +4452,26 @@ function updateProg() {
 
 function seekClick(e) {
   const r = document.getElementById('pt').getBoundingClientRect();
+  const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  if (ytIsActive()) {
+    const d = ytDuration();
+    if (d > 0) { try { ytPlayer.seekTo(frac * d, true); } catch(_) {} ytPoll(); }
+    return;
+  }
   const ovOpen = document.getElementById('videoOverlay').classList.contains('open');
   const el = ovOpen ? document.getElementById('overlayVideoEl') : audioEl;
-  if (el.duration) el.currentTime = ((e.clientX - r.left) / r.width) * el.duration;
+  if (el.duration) el.currentTime = frac * el.duration;
 }
 
 function togglePlay() {
+  if (ytIsActive()) {
+    try {
+      const st = ytPlayer.getPlayerState();
+      if (st === 1 || st === 3) ytPlayer.pauseVideo();
+      else ytPlayer.playVideo();
+    } catch(_) {}
+    return;
+  }
   const ovOpen = document.getElementById('videoOverlay').classList.contains('open');
   if (ovOpen) {
     const ovVid  = document.getElementById('overlayVideoEl');
@@ -4336,11 +4527,18 @@ function nextTrack() {
 
 function toggleShuffle() { isShuf = !isShuf; document.getElementById('shufBtn').classList.toggle('on', isShuf); }
 function toggleRepeat()  { isRepeat = !isRepeat; document.getElementById('repBtn').classList.toggle('on', isRepeat); }
-function setVol(v) { audioEl.volume = +v; videoEl.volume = +v; updateVolIcon(+v); }
+function setVol(v) {
+  audioEl.volume = +v; videoEl.volume = +v;
+  const ov = document.getElementById('overlayVideoEl');
+  if (ov) ov.volume = +v;
+  if (ytPlayer && ytPlayer.setVolume) { try { ytPlayer.setVolume(Math.round(+v * 100)); } catch(_) {} }
+  updateVolIcon(+v);
+}
 
 function toggleMute() {
   isMuted = !isMuted;
   audioEl.muted = videoEl.muted = isMuted;
+  if (ytPlayer) { try { isMuted ? ytPlayer.mute() : ytPlayer.unMute(); } catch(_) {} }
   updateVolIcon(isMuted ? 0 : +document.getElementById('volR').value);
 }
 
@@ -4573,6 +4771,7 @@ function applySpeed() {
   [audioEl, videoEl, document.getElementById('overlayVideoEl')].forEach(el => {
     if (el) { el.defaultPlaybackRate = s; el.playbackRate = s; }
   });
+  if (ytPlayer && ytPlayer.setPlaybackRate) { try { ytPlayer.setPlaybackRate(s); } catch(_) {} }
   const lbl = document.getElementById('speedLbl');
   if (lbl) lbl.textContent = s + '×';
   const btn = document.getElementById('speedBtn');
@@ -4978,8 +5177,7 @@ function openVideoOverlay(file, driveUrl, token, clean) {
   const titleEl  = document.getElementById('videoOverlayTitle');
 
   // Reset state fully (including any YouTube embed left open)
-  const ytF = document.getElementById('ytFrame');
-  if (ytF) { ytF.src = ''; ytF.style.display = 'none'; }
+  ytTeardown();
   ovVideo.style.display  = 'none';
   ovVideo.src            = '';
   ovVideo.ontimeupdate   = null;
@@ -4994,6 +5192,7 @@ function openVideoOverlay(file, driveUrl, token, clean) {
   // Open overlay
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+  dockOverlayToPlayerBar();
 
   // Cancel previous download
   if (overlayXHR) { overlayXHR.abort(); overlayXHR = null; }
@@ -5099,6 +5298,29 @@ function openVideoOverlay(file, driveUrl, token, clean) {
   });
 }
 
+/** Shrink the overlay so the player bar below it stays visible */
+function dockOverlayToPlayerBar() {
+  const overlay = document.getElementById('videoOverlay');
+  const bar = document.querySelector('.pbar');
+  if (!overlay || !bar) return;
+  const h = Math.round(bar.getBoundingClientRect().height);
+  document.documentElement.style.setProperty('--pbar-h', h + 'px');
+  overlay.classList.add('docked');
+  document.body.classList.add('video-open');
+}
+
+function undockOverlay() {
+  const overlay = document.getElementById('videoOverlay');
+  if (overlay) overlay.classList.remove('docked');
+  document.body.classList.remove('video-open');
+}
+
+// Keep the dock height correct through rotation / resize
+window.addEventListener('resize', () => {
+  const overlay = document.getElementById('videoOverlay');
+  if (overlay && overlay.classList.contains('open')) dockOverlayToPlayerBar();
+});
+
 function tapToPlay() {
   const ovVideo  = document.getElementById('overlayVideoEl');
   const tapPanel = document.getElementById('videoTapPlay');
@@ -5116,12 +5338,11 @@ function closeVideoOverlay() {
 
   overlay.classList.remove('open');
   document.body.style.overflow = '';
+  undockOverlay();
   if (tapPanel) tapPanel.classList.remove('show');
 
   // Stop and clean up (including the YouTube embed)
-  curYtVideo = null;
-  const ytF = document.getElementById('ytFrame');
-  if (ytF) { ytF.src = ''; ytF.style.display = 'none'; }
+  ytTeardown();
   ovVideo.pause();
   ovVideo.src          = '';
   ovVideo.style.display = 'none';
